@@ -77,7 +77,7 @@ test("a double slash cannot change upstream origin", async () => {
   expect(response.status).toBe(200);
 });
 
-test.each([301, 302, 307, 308])(
+test.each([300, 301, 302, 303, 307, 308])(
   "upstream redirect %s is refused without settlement",
   async (status) => {
     const { app, events } = harness({
@@ -97,6 +97,35 @@ test.each([301, 302, 307, 308])(
     expect(events).toEqual(["verify", "upstream"]);
   },
 );
+
+test("304 Not Modified is forwarded for conditional requests", async () => {
+  const { app, events } = harness({
+    upstream: async (request) => {
+      expect(request.headers.get("if-none-match")).toBe('"abc123"');
+      return new Response(null, {
+        status: 304,
+        headers: {
+          etag: '"abc123"',
+          "last-modified": "Wed, 21 Oct 2026 07:28:00 GMT",
+        },
+      });
+    },
+  });
+  const response = await app.request("/v1/echo", {
+    headers: {
+      "if-none-match": '"abc123"',
+      "payment-signature": await signature(app),
+    },
+  });
+  expect(response.status).toBe(304);
+  expect(await response.text()).toBe("");
+  expect(response.headers.get("etag")).toBe('"abc123"');
+  expect(response.headers.get("last-modified")).toBe(
+    "Wed, 21 Oct 2026 07:28:00 GMT",
+  );
+  // The upstream answered the client's question, so the charge settles.
+  expect(events).toEqual(["verify", "upstream", "settle"]);
+});
 
 test("oversized request never reaches upstream", async () => {
   const { app, events } = harness({ env: { MAX_BODY_BYTES: "4" } });
