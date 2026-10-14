@@ -108,6 +108,7 @@ Bun.serve({ port: config.port, fetch: app.fetch });
 - 上游动作发生在结算之前。非幂等 POST 在结算失败时不会回滚；需要 exactly-once 行为时，上游必须自行提供幂等机制。
 - facilitator 超时可能无法确定链上结算结果；错误响应不等于确定没有扣款，重试前应先核对。
 - `/healthz` 只表示进程存活，不代表上游或 facilitator 已就绪。
+- 每个响应都带 `X-Request-ID` 头。调用方传入自己的 `x-request-id`（仅限字母、数字、`.`、`_`、`-`，最长 128 字符）会被原样回显并透传上游，使 agent、wrapper 与上游日志可用同一 ID 关联；不安全的值会被替换为新 UUID。
 
 ## 验证
 

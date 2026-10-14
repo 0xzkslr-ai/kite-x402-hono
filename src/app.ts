@@ -23,6 +23,23 @@ export function createApp(
   options: AppOptions = {},
 ): Hono {
   const app = new Hono();
+  // Label every response — paid answers, 402 challenges, guard-rail rejections
+  // and errors alike — with a request ID the caller can quote back in issues
+  // and correlate across agent, wrapper and upstream logs. A caller-supplied
+  // value is echoed only when it fits a conservative token alphabet, so the
+  // header cannot smuggle control characters or flood logs; anything else
+  // gets a freshly minted UUID. Caller-supplied IDs also travel upstream,
+  // because x-request-id is not on the proxy's blocked list.
+  const REQUEST_ID_PATTERN = /^[A-Za-z0-9._~-]{1,128}$/;
+  app.use("*", async (c, next) => {
+    const inbound = c.req.header("x-request-id");
+    const requestId =
+      inbound && REQUEST_ID_PATTERN.test(inbound)
+        ? inbound
+        : crypto.randomUUID();
+    await next();
+    c.res.headers.set("x-request-id", requestId);
+  });
   const facilitatorTimeoutMs = config.facilitatorTimeoutMs ?? 90000;
   if (
     !Number.isInteger(facilitatorTimeoutMs) ||
