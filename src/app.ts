@@ -94,6 +94,42 @@ export function createApp(
       price: `$${config.price}`,
     }),
   );
+  // Readiness is stronger than liveness: the process is up and the facilitator
+  // currently offers the configured network, so charges can actually be settled.
+  app.get("/readyz", async (c) => {
+    let supported;
+    try {
+      supported = await facilitator.getSupported();
+    } catch {
+      return c.json({ ok: false, error: "facilitator_unavailable" }, 503, {
+        "cache-control": "no-store",
+      });
+    }
+    const offered = supported.kinds.some(
+      (kind) => kind.network === config.chain.network,
+    );
+    if (!offered) {
+      return c.json(
+        {
+          ok: false,
+          error: "network_not_offered",
+          network: config.chain.network,
+        },
+        503,
+        { "cache-control": "no-store" },
+      );
+    }
+    return c.json(
+      {
+        ok: true,
+        network: config.chain.network,
+        asset: config.chain.symbol,
+        price: `$${config.price}`,
+      },
+      200,
+      { "cache-control": "no-store" },
+    );
+  });
   app.use("/v1/*", async (c, next) => {
     c.header("cache-control", "no-store");
     try {
