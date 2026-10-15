@@ -1,7 +1,10 @@
 # Changelog
 
-## 0.3.2
+## Unreleased
 
+- Forward conditional 304 responses through settlement while refusing other 3xx statuses.
+- Add facilitator readiness, response request IDs and early declared-body size checks.
+- Validate readiness protocol/version and CORS configuration; preserve paid OPTIONS handling.
 - Add configurable CORS support via `CORS_ORIGIN` (`*` or specific HTTP(S) origin) to allow browser dApps, Web3 extensions, and Kite AI web agents to interact with paid endpoints.
 - Allow preflight `OPTIONS` requests to receive `204 No Content` with appropriate `Access-Control-Allow-*` headers without requiring payments.
 - Expose essential x402 payment headers (`Payment-Required`, `Payment-Response`, `Retry-After`) to cross-origin browser clients.

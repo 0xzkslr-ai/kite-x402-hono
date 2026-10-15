@@ -17,7 +17,7 @@ export interface Config {
   corsOrigin?: string | undefined;
 }
 
-function parseCorsOrigin(value: string): string {
+export function parseCorsOrigin(value: string): string {
   if (value === "*") return "*";
   return httpUrl(value, "CORS_ORIGIN", true);
 }

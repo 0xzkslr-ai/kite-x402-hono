@@ -33,8 +33,8 @@ curl -i 'http://localhost:8080/v1/echo?message=hello'
 ```
 
 `/healthz` 返回 200，且不会访问 facilitator。`/readyz` 会实际调用
-facilitator 的 `/supported` 接口，只有当前配置的 Kite 网络仍被支持时才返回
-200，编排系统可据此区分“进程存活”和“可以收款”。`/v1/echo` 在 facilitator 可访问并支持
+facilitator 的 `/supported` 接口，只有当前配置的 Kite 网络、x402 v2 和 exact 模式均被支持时才返回
+200；这不保证上游就绪或实际结算成功。`/v1/echo` 在 facilitator 可访问并支持
 所选网络时，未付款请求会返回带有 x402 v2 `PAYMENT-REQUIRED` 的 402。如果 facilitator
 不可用，会返回 503；未完成付款验证前，代理不会调用上游。
 
@@ -99,7 +99,7 @@ Bun.serve({ port: config.port, fetch: app.fetch });
 
 1. 没有付款或付款无效：返回 402，不调用上游。
 2. 付款验证成功：去掉 `/v1` 前缀，保留查询参数、方法和请求体，注入配置的上游凭据，调用固定 origin。
-3. 上游返回 2xx：缓存有大小上限的响应，然后请求 facilitator 结算。
+3. 上游返回 2xx 或条件请求 304：缓存有大小上限的响应，然后请求 facilitator 结算。
 4. 结算成功：返回上游响应和 `PAYMENT-RESPONSE`。
 5. 上游返回 4xx/5xx、超时、请求或响应超限、连接失败：不结算。
 6. 结算拒绝：返回 SDK 的失败响应，不泄露受保护数据。
@@ -116,7 +116,7 @@ Bun.serve({ port: config.port, fetch: app.fetch });
 - 上游动作发生在结算之前。非幂等 POST 在结算失败时不会回滚；需要 exactly-once 行为时，上游必须自行提供幂等机制。
 - facilitator 超时可能无法确定链上结算结果；错误响应不等于确定没有扣款，重试前应先核对。
 - `/healthz` 只表示进程存活，不代表上游或 facilitator 已就绪。可用 `/readyz` 检查 facilitator 是否可达且支持所配置的网络。
-- 每个响应都带 `X-Request-ID` 头。调用方传入自己的 `x-request-id`（仅限字母、数字、`.`、`_`、`-`，最长 128 字符）会被原样回显并透传上游，使 agent、wrapper 与上游日志可用同一 ID 关联；不安全的值会被替换为新 UUID。
+- 每个响应都带 `X-Request-ID` 头。调用方传入自己的 `x-request-id`（仅限字母、数字、`.`、`_`、`~`、`-`，最长 128 字符）会被原样回显并透传上游，使 agent、wrapper 与上游日志可用同一 ID 关联；不安全的值会被替换为新 UUID。
 
 ## 验证
 
@@ -153,7 +153,7 @@ Bun.serve({ port: config.port, fetch: app.fetch });
 清理属于尽力执行：自定义流生产者仍须管理底层资源。
 此改动不会取消或撤销付款结算，也不增加付款重试。
 
-### 跨域资源共享 (CORS) 支持（0.3.2 新增）
+### 跨域资源共享 (CORS) 支持（未发布，npm 0.3.1 尚不包含）
 
 配置 `CORS_ORIGIN` 为 `*` 或指定 origin（例如 `https://agent.kite.ai`）可支持 Web 浏览器、dApp 及 AI Agent 前端调用付费 API：
 
@@ -184,3 +184,8 @@ pieUSD 会话，并保存真实响应和交易哈希。主网交易不是本地�
 贡献流程见 [CONTRIBUTING.md](CONTRIBUTING.md)，活动范围和证据清单见 [docs/week-1.md](docs/week-1.md)。
 AI 工具参与了开发；BrK 审核并负责此贡献。项目自己的 Wrapper、配置校验、代理逻辑、测试和
 打包工作与上游 x402 SDK 功能已明确区分。
+
+就绪探针每次访问 facilitator，部署时请设置合理探测间隔；它不保证上游健康或真实结算成功。
+请求 ID 是调用方可控的关联标签，不能用作身份凭证或付款去重键。生成的 UUID 只标记代理响应；非法调用方 ID 不会透传上游。
+仅同时携带 Origin 和 Access-Control-Request-Method 的 OPTIONS 属于免费预检，其他 OPTIONS 仍需付款。
+代理会过滤上游的 CORS 响应头，保持自身来源策略；CORS 不是服务器端鉴权。跨域响应也暴露 X-Request-ID。

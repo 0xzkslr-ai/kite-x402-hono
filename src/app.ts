@@ -10,9 +10,9 @@ import {
   type FacilitatorClient,
 } from "@x402/core/server";
 import { ExactEvmScheme } from "@x402/evm/exact/server";
-import { loadConfig, type Config } from "./config.js";
+import { loadConfig, parseCorsOrigin, type Config } from "./config.js";
 import { parsePrice } from "./networks.js";
-import { proxy, type FetchUpstream } from "./proxy.js";
+import { proxy, REQUEST_ID_PATTERN, type FetchUpstream } from "./proxy.js";
 
 export interface AppOptions {
   facilitator?: FacilitatorClient;
@@ -31,7 +31,6 @@ export function createApp(
   // header cannot smuggle control characters or flood logs; anything else
   // gets a freshly minted UUID. Caller-supplied IDs also travel upstream,
   // because x-request-id is not on the proxy's blocked list.
-  const REQUEST_ID_PATTERN = /^[A-Za-z0-9._~-]{1,128}$/;
   app.use("*", async (c, next) => {
     const inbound = c.req.header("x-request-id");
     const requestId =
@@ -42,36 +41,48 @@ export function createApp(
     c.res.headers.set("x-request-id", requestId);
   });
   if (config.corsOrigin) {
-    app.use(
-      "*",
-      cors({
-        origin: config.corsOrigin,
-        allowMethods: [
-          "GET",
-          "HEAD",
-          "POST",
-          "PUT",
-          "DELETE",
-          "PATCH",
-          "OPTIONS",
-        ],
-        allowHeaders: [
-          "Content-Type",
-          "Authorization",
-          "Payment-Signature",
-          "X-Payment",
-          "X-Requested-With",
-        ],
-        exposeHeaders: [
-          "Payment-Required",
-          "Payment-Response",
-          "X-Payment-Required",
-          "X-Payment-Response",
-          "Retry-After",
-        ],
-        maxAge: 86400,
-      }),
-    );
+    const corsMiddleware = cors({
+      origin: parseCorsOrigin(config.corsOrigin),
+      allowMethods: [
+        "GET",
+        "HEAD",
+        "POST",
+        "PUT",
+        "DELETE",
+        "PATCH",
+        "OPTIONS",
+      ],
+      allowHeaders: [
+        "Content-Type",
+        "Authorization",
+        "Payment-Signature",
+        "X-Payment",
+        "X-Requested-With",
+        "X-Request-ID",
+      ],
+      exposeHeaders: [
+        "Payment-Required",
+        "Payment-Response",
+        "X-Payment-Required",
+        "X-Payment-Response",
+        "Retry-After",
+        "X-Request-ID",
+      ],
+      maxAge: 86400,
+    });
+    app.use("*", (c, next) => {
+      // Only browser preflight bypasses the paid OPTIONS route.
+      if (
+        c.req.method === "OPTIONS" &&
+        !(
+          c.req.header("origin") &&
+          c.req.header("access-control-request-method")
+        )
+      ) {
+        return next();
+      }
+      return corsMiddleware(c, next);
+    });
   }
   const facilitatorTimeoutMs = config.facilitatorTimeoutMs ?? 90000;
   if (
@@ -162,7 +173,7 @@ export function createApp(
     }),
   );
   // Readiness is stronger than liveness: the process is up and the facilitator
-  // currently offers the configured network, so charges can actually be settled.
+  // advertises the configured protocol and network; this does not prove settlement.
   app.get("/readyz", async (c) => {
     let supported;
     try {
@@ -173,7 +184,10 @@ export function createApp(
       });
     }
     const offered = supported.kinds.some(
-      (kind) => kind.network === config.chain.network,
+      (kind) =>
+        kind.network === config.chain.network &&
+        kind.scheme === "exact" &&
+        kind.x402Version === 2,
     );
     if (!offered) {
       return c.json(

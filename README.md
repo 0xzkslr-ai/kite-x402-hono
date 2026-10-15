@@ -36,8 +36,9 @@ curl -i 'http://localhost:8080/v1/echo?message=hello'
 
 `/healthz` returns 200 without contacting a facilitator. `/readyz` actually
 calls the facilitator's `/supported` endpoint and returns 200 only when the
-configured Kite network is currently offered, so orchestrators can distinguish
-"process up" from "able to charge". `/v1/echo` returns
+configured Kite network is offered with x402 v2 and the exact scheme, so orchestrators can distinguish
+"process up" from "supported payment protocol". This does not prove that
+the upstream is ready or that a payment will settle. `/v1/echo` returns
 402 with an x402 v2 `PAYMENT-REQUIRED` header when the configured facilitator
 is reachable and supports the selected network. A facilitator outage returns
 503 instead; the upstream is never called without verified payment.
@@ -107,7 +108,7 @@ integer arithmetic, including for testnet's 18 decimals.
 1. No payment or invalid payment: return 402; do not call the upstream.
 2. Verified payment: strip `/v1`, preserve the query/method/body, inject the
    configured upstream credential, and call the fixed upstream origin.
-3. Upstream 2xx: buffer the bounded response, then ask the facilitator to settle.
+3. Upstream 2xx or conditional 304: buffer the bounded response, then ask the facilitator to settle.
 4. Successful settlement: return the upstream response and `PAYMENT-RESPONSE`.
 5. Upstream 4xx/5xx, timeout, oversized body or connection failure: do not settle.
 6. Settlement refusal: return the SDK failure response, withholding protected data.
@@ -137,11 +138,14 @@ Compatibility notes:
   error response is not proof of no charge. Reconcile before retrying a payment.
 - `/healthz` is process liveness, not proof of upstream/facilitator readiness.
   Use `/readyz` to check that the facilitator is reachable and offers the
-  configured network.
+  configured network, x402 v2 and exact scheme. Each probe contacts the facilitator;
+  use an appropriate probe interval. It does not verify upstream health or actual settlement.
 - Every response carries an `X-Request-ID` header. Send your own `x-request-id`
-  (letters, digits, `.`, `_`, `-`, up to 128 chars) and it is echoed back and
+  (letters, digits, `.`, `_`, `~`, `-`, up to 128 chars) and it is echoed back and
   forwarded upstream so agent, wrapper and upstream logs correlate; unsafe
-  values are replaced with a minted UUID.
+  values are replaced with a minted UUID in the response and stripped upstream.
+  IDs are caller-controlled correlation labels, not authentication or payment deduplication keys.
+  Generated IDs label the wrapper response; they are not injected upstream.
 - The CLI disables Bun's short idle timeout so it does not disconnect a client
   during settlement. SDK facilitator calls default to a configurable 90-second timeout;
   deploy behind a reverse proxy with suitable request deadlines and rate limits.
@@ -192,15 +196,18 @@ original bytes. Cleanup is best-effort: an injected stream producer still owns i
 underlying resources. This does not cancel or undo payment settlement, and does
 not add payment retries.
 
-### CORS support (added in 0.3.2)
+### CORS support (unreleased; not in npm 0.3.1)
 
 Configure `CORS_ORIGIN` with `*` or a specific origin (e.g. `https://agent.kite.ai`)
 to enable web browsers, dApps, and AI agent frontends to make paid cross-origin calls:
 
 - Preflight `OPTIONS` requests receive `204 No Content` with appropriate
   `Access-Control-Allow-*` headers without triggering payment middleware.
+  Only OPTIONS with Origin and Access-Control-Request-Method is preflight;
+  other OPTIONS requests still require payment. Upstream CORS headers are stripped
+  so the wrapper controls origin policy. CORS is not server-side authentication.
 - `402 Payment Required` challenge responses and successful responses expose
-  `Payment-Required`, `Payment-Response`, `Retry-After`, allowing browser `fetch`
+  `Payment-Required`, `Payment-Response`, `Retry-After`, `X-Request-ID`, allowing browser `fetch`
   clients to inspect payment requirements and payment settlement tokens.
 - When `CORS_ORIGIN` is unset (the default), CORS middleware is omitted entirely
   with zero overhead and backwards-compatible behavior.
