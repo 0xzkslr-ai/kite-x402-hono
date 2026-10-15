@@ -67,19 +67,22 @@ Bun.serve({ port: config.port, fetch: app.fetch });
 
 ## 配置项
 
-| 变量                   | 默认值                               | 说明                                                |
-| ---------------------- | ------------------------------------ | --------------------------------------------------- |
-| `PAY_TO`               | 必填                                 | 非零 EVM 收款地址                                   |
-| `UPSTREAM_URL`         | 必填                                 | 固定的 HTTP(S) origin，不得包含路径、凭据或查询参数 |
-| `KITE_NETWORK`         | `mainnet`                            | `mainnet` 或 `testnet`                              |
-| `PRICE_USD`            | `0.001`                              | 正小数，最多 6 位小数，可带 `$` 前缀                |
-| `FACILITATOR_URL`      | `https://facilitator.pieverse.io/v2` | 保留 `/v2` 后缀                                     |
-| `UPSTREAM_AUTH_HEADER` | `Authorization`                      | 发给上游的认证头名称                                |
-| `UPSTREAM_AUTH_VALUE`  | 空                                   | 服务端上游凭据，会覆盖买方提供的同名值              |
-| `SERVICE_DESCRIPTION`  | Kite paid API description            | 写入付款挑战的服务说明                              |
-| `PORT`                 | `8080`                               | 代理监听端口                                        |
-| `UPSTREAM_TIMEOUT_MS`  | `10000`                              | 请求体读取、上游响应头和响应体的超时时间            |
-| `MAX_BODY_BYTES`       | `1048576`                            | 请求和响应大小限制，最大 16 MiB                     |
+| 变量                      | 默认值                               | 说明                                                |
+| ------------------------- | ------------------------------------ | --------------------------------------------------- |
+| `PAY_TO`                  | 必填                                 | 非零 EVM 收款地址                                   |
+| `UPSTREAM_URL`            | 必填                                 | 固定的 HTTP(S) origin，不得包含路径、凭据或查询参数 |
+| `KITE_NETWORK`            | `mainnet`                            | `mainnet` 或 `testnet`                              |
+| `PRICE_USD`               | `0.001`                              | 正小数，最多 6 位小数，可带 `$` 前缀                |
+| `FACILITATOR_URL`         | `https://facilitator.pieverse.io/v2` | 保留 `/v2` 后缀                                     |
+| `UPSTREAM_AUTH_HEADER`    | `Authorization`                      | 发给上游的认证头名称                                |
+| `UPSTREAM_AUTH_VALUE`     | 空                                   | 服务端上游凭据，会覆盖买方提供的同名值              |
+| `SERVICE_DESCRIPTION`     | Kite paid API description            | 写入付款挑战的服务说明                              |
+| `PORT`                    | `8080`                               | 代理监听端口                                        |
+| `UPSTREAM_TIMEOUT_MS`     | `10000`                              | 请求体读取、上游响应头和响应体的超时时间            |
+| `MAX_BODY_BYTES`          | `1048576`                            | 请求和响应大小限制，最大 16 MiB                     |
+| `MAX_CONCURRENT_REQUESTS` | `64`                                 | `/v1/*` 路径的并发准入上限（1 至 10000）            |
+| `FACILITATOR_TIMEOUT_MS`  | `90000`                              | 请求 facilitator 的网络超时毫秒数（1 至 300000）    |
+| `CORS_ORIGIN`             | 未配置                               | 允许的跨域来源（`*` 或 HTTP(S) origin），支持浏览器 |
 
 除本地开发外，上游和 facilitator 必须使用 HTTPS。示例 `.env` 明确选择 testnet，
 但兼容性默认值仍是 mainnet。本代理不需要钱包私钥。
@@ -149,6 +152,14 @@ Bun.serve({ port: config.port, fetch: app.fetch });
 读取器在成功和失败时均释放锁，正常响应内容保持不变。
 清理属于尽力执行：自定义流生产者仍须管理底层资源。
 此改动不会取消或撤销付款结算，也不增加付款重试。
+
+### 跨域资源共享 (CORS) 支持（0.3.2 新增）
+
+配置 `CORS_ORIGIN` 为 `*` 或指定 origin（例如 `https://agent.kite.ai`）可支持 Web 浏览器、dApp 及 AI Agent 前端调用付费 API：
+
+- 预检 `OPTIONS` 请求返回 `204 No Content` 及对应的 `Access-Control-Allow-*` 头部，无需先触发付费。
+- 付费挑战 `402 Payment Required` 与正常响应均通过 `Access-Control-Expose-Headers` 暴露 `Payment-Required`、`Payment-Response`、`Retry-After`，方便浏览器端 `fetch` 读取付款挑战及结算回执。
+- 未配置 `CORS_ORIGIN` 时（默认），不注册 CORS 中间件，保持零额外开销与向下兼容。
 
 ### 检查命令
 

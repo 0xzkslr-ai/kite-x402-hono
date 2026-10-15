@@ -14,6 +14,12 @@ export interface Config {
   maxBodyBytes: number;
   maxConcurrentRequests?: number;
   facilitatorTimeoutMs?: number;
+  corsOrigin?: string | undefined;
+}
+
+function parseCorsOrigin(value: string): string {
+  if (value === "*") return "*";
+  return httpUrl(value, "CORS_ORIGIN", true);
 }
 
 function integer(value: string, key: string, max: number): number {
@@ -132,5 +138,8 @@ export function loadConfig(
       "FACILITATOR_TIMEOUT_MS",
       300000,
     ),
+    corsOrigin: get("CORS_ORIGIN")
+      ? parseCorsOrigin(get("CORS_ORIGIN"))
+      : undefined,
   };
 }

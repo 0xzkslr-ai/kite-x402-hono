@@ -1,4 +1,5 @@
 import { Hono } from "hono";
+import { cors } from "hono/cors";
 import {
   paymentMiddlewareFromHTTPServer,
   x402HTTPResourceServer,
@@ -40,6 +41,38 @@ export function createApp(
     await next();
     c.res.headers.set("x-request-id", requestId);
   });
+  if (config.corsOrigin) {
+    app.use(
+      "*",
+      cors({
+        origin: config.corsOrigin,
+        allowMethods: [
+          "GET",
+          "HEAD",
+          "POST",
+          "PUT",
+          "DELETE",
+          "PATCH",
+          "OPTIONS",
+        ],
+        allowHeaders: [
+          "Content-Type",
+          "Authorization",
+          "Payment-Signature",
+          "X-Payment",
+          "X-Requested-With",
+        ],
+        exposeHeaders: [
+          "Payment-Required",
+          "Payment-Response",
+          "X-Payment-Required",
+          "X-Payment-Response",
+          "Retry-After",
+        ],
+        maxAge: 86400,
+      }),
+    );
+  }
   const facilitatorTimeoutMs = config.facilitatorTimeoutMs ?? 90000;
   if (
     !Number.isInteger(facilitatorTimeoutMs) ||

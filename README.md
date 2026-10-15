@@ -72,19 +72,22 @@ injection for tests. Never use a simulated facilitator in a production service.
 
 ## Configuration
 
-| Variable               | Default                              | Meaning                                                                         |
-| ---------------------- | ------------------------------------ | ------------------------------------------------------------------------------- |
-| `PAY_TO`               | Required                             | Nonzero EVM receiving address                                                   |
-| `UPSTREAM_URL`         | Required                             | Fixed HTTP(S) origin, with no path, credentials or query                        |
-| `KITE_NETWORK`         | `mainnet`                            | `mainnet` or `testnet`                                                          |
-| `PRICE_USD`            | `0.001`                              | Positive decimal, at most 6 fractional digits; optional `$` prefix              |
-| `FACILITATOR_URL`      | `https://facilitator.pieverse.io/v2` | Keep the `/v2` suffix                                                           |
-| `UPSTREAM_AUTH_HEADER` | `Authorization`                      | Upstream credential header name                                                 |
-| `UPSTREAM_AUTH_VALUE`  | Empty                                | Server-side credential; replaces buyer-supplied values                          |
-| `SERVICE_DESCRIPTION`  | Kite paid API description            | Included in the payment challenge                                               |
-| `PORT`                 | `8080`                               | Wrapper port                                                                    |
-| `UPSTREAM_TIMEOUT_MS`  | `10000`                              | Timeout for reading the request body, then separately for upstream headers/body |
-| `MAX_BODY_BYTES`       | `1048576`                            | Request and response byte limit; maximum 16 MiB                                 |
+| Variable                  | Default                              | Meaning                                                                         |
+| ------------------------- | ------------------------------------ | ------------------------------------------------------------------------------- |
+| `PAY_TO`                  | Required                             | Nonzero EVM receiving address                                                   |
+| `UPSTREAM_URL`            | Required                             | Fixed HTTP(S) origin, with no path, credentials or query                        |
+| `KITE_NETWORK`            | `mainnet`                            | `mainnet` or `testnet`                                                          |
+| `PRICE_USD`               | `0.001`                              | Positive decimal, at most 6 fractional digits; optional `$` prefix              |
+| `FACILITATOR_URL`         | `https://facilitator.pieverse.io/v2` | Keep the `/v2` suffix                                                           |
+| `UPSTREAM_AUTH_HEADER`    | `Authorization`                      | Upstream credential header name                                                 |
+| `UPSTREAM_AUTH_VALUE`     | Empty                                | Server-side credential; replaces buyer-supplied values                          |
+| `SERVICE_DESCRIPTION`     | Kite paid API description            | Included in the payment challenge                                               |
+| `PORT`                    | `8080`                               | Wrapper port                                                                    |
+| `UPSTREAM_TIMEOUT_MS`     | `10000`                              | Timeout for reading the request body, then separately for upstream headers/body |
+| `MAX_BODY_BYTES`          | `1048576`                            | Request and response byte limit; maximum 16 MiB                                 |
+| `MAX_CONCURRENT_REQUESTS` | `64`                                 | Concurrency admission limit for `/v1/*` requests (1 to 10000)                   |
+| `FACILITATOR_TIMEOUT_MS`  | `90000`                              | Timeout in ms for facilitator network requests (1 to 300000)                    |
+| `CORS_ORIGIN`             | Unset                                | Allowed origin for CORS (`*` or HTTP(S) origin); enables browser dApp clients   |
 
 HTTPS is required for upstream/facilitator URLs except localhost development.
 The example `.env` explicitly selects testnet; the compatibility default remains
@@ -188,6 +191,19 @@ Readers release their locks on success and failure; successful bodies retain the
 original bytes. Cleanup is best-effort: an injected stream producer still owns its
 underlying resources. This does not cancel or undo payment settlement, and does
 not add payment retries.
+
+### CORS support (added in 0.3.2)
+
+Configure `CORS_ORIGIN` with `*` or a specific origin (e.g. `https://agent.kite.ai`)
+to enable web browsers, dApps, and AI agent frontends to make paid cross-origin calls:
+
+- Preflight `OPTIONS` requests receive `204 No Content` with appropriate
+  `Access-Control-Allow-*` headers without triggering payment middleware.
+- `402 Payment Required` challenge responses and successful responses expose
+  `Payment-Required`, `Payment-Response`, `Retry-After`, allowing browser `fetch`
+  clients to inspect payment requirements and payment settlement tokens.
+- When `CORS_ORIGIN` is unset (the default), CORS middleware is omitted entirely
+  with zero overhead and backwards-compatible behavior.
 
 ### Commands
 
