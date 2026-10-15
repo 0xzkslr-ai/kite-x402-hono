@@ -28,10 +28,13 @@ bun run example
 ```sh
 bun run start
 curl -i http://localhost:8080/healthz
+curl -i http://localhost:8080/readyz
 curl -i 'http://localhost:8080/v1/echo?message=hello'
 ```
 
-`/healthz` 返回 200，且不会访问 facilitator。`/v1/echo` 在 facilitator 可访问并支持
+`/healthz` 返回 200，且不会访问 facilitator。`/readyz` 会实际调用
+facilitator 的 `/supported` 接口，只有当前配置的 Kite 网络仍被支持时才返回
+200，编排系统可据此区分“进程存活”和“可以收款”。`/v1/echo` 在 facilitator 可访问并支持
 所选网络时，未付款请求会返回带有 x402 v2 `PAYMENT-REQUIRED` 的 402。如果 facilitator
 不可用，会返回 503；未完成付款验证前，代理不会调用上游。
 
@@ -107,7 +110,7 @@ Bun.serve({ port: config.port, fetch: app.fetch });
 - 响应会被缓存，因此本模板不支持流式响应、SSE、WebSocket 和无限大小下载。
 - 上游动作发生在结算之前。非幂等 POST 在结算失败时不会回滚；需要 exactly-once 行为时，上游必须自行提供幂等机制。
 - facilitator 超时可能无法确定链上结算结果；错误响应不等于确定没有扣款，重试前应先核对。
-- `/healthz` 只表示进程存活，不代表上游或 facilitator 已就绪。
+- `/healthz` 只表示进程存活，不代表上游或 facilitator 已就绪。可用 `/readyz` 检查 facilitator 是否可达且支持所配置的网络。
 
 ## 验证
 

@@ -30,10 +30,14 @@ In another terminal in the same directory:
 ```sh
 bun run start
 curl -i http://localhost:8080/healthz
+curl -i http://localhost:8080/readyz
 curl -i 'http://localhost:8080/v1/echo?message=hello'
 ```
 
-`/healthz` returns 200 without contacting a facilitator. `/v1/echo` returns
+`/healthz` returns 200 without contacting a facilitator. `/readyz` actually
+calls the facilitator's `/supported` endpoint and returns 200 only when the
+configured Kite network is currently offered, so orchestrators can distinguish
+"process up" from "able to charge". `/v1/echo` returns
 402 with an x402 v2 `PAYMENT-REQUIRED` header when the configured facilitator
 is reachable and supports the selected network. A facilitator outage returns
 503 instead; the upstream is never called without verified payment.
@@ -126,6 +130,8 @@ Compatibility notes:
 - A facilitator timeout may leave the on-chain settlement outcome unknown. An
   error response is not proof of no charge. Reconcile before retrying a payment.
 - `/healthz` is process liveness, not proof of upstream/facilitator readiness.
+  Use `/readyz` to check that the facilitator is reachable and offers the
+  configured network.
 - The CLI disables Bun's short idle timeout so it does not disconnect a client
   during settlement. SDK facilitator calls default to a configurable 90-second timeout;
   deploy behind a reverse proxy with suitable request deadlines and rate limits.
