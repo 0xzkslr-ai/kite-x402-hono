@@ -105,6 +105,8 @@ Bun.serve({ port: config.port, fetch: app.fetch });
 - 本模板拒绝上游重定向并返回 502，不结算，避免凭据被带到其他主机。请直接配置最终上游 origin。
 - 会删除支付头、客户端认证头、Cookie、代理头和 hop-by-hop 头；上游返回的认证头和 Cookie 也会被删除。
 - 响应会被缓存，因此本模板不支持流式响应、SSE、WebSocket 和无限大小下载。
+- 有效 `Content-Length` 已超过 `MAX_BODY_BYTES` 的请求会在 facilitator 验证前被拒绝；
+  流式、分块或错误声明长度的请求仍会在代理读取时执行大小限制。
 - 上游动作发生在结算之前。非幂等 POST 在结算失败时不会回滚；需要 exactly-once 行为时，上游必须自行提供幂等机制。
 - facilitator 超时可能无法确定链上结算结果；错误响应不等于确定没有扣款，重试前应先核对。
 - `/healthz` 只表示进程存活，不代表上游或 facilitator 已就绪。

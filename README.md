@@ -118,6 +118,9 @@ Compatibility notes:
   into response bodies or unrelated headers.
 - Response buffering is deliberate. Streaming/SSE, WebSocket and unbounded
   downloads are outside this template's scope.
+- Requests whose valid `Content-Length` already exceeds `MAX_BODY_BYTES` are
+  rejected before facilitator verification. Streaming, chunked and incorrectly
+  declared bodies are still enforced while the proxy reads them.
 - Upstream actions happen before settlement. For non-idempotent POST operations,
   settlement failure does not undo the upstream action. Use an upstream with
   idempotency support; the wrapper does not provide exactly-once execution.

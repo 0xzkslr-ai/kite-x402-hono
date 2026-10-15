@@ -109,6 +109,36 @@ test("oversized request never reaches upstream", async () => {
   expect(events).toEqual(["verify"]);
 });
 
+test("declared oversized request is rejected before payment verification", async () => {
+  const { app, events } = harness({ env: { MAX_BODY_BYTES: "4" } });
+  const response = await app.request("/v1/echo", {
+    method: "POST",
+    body: "12345",
+    headers: {
+      "content-length": "5",
+      "payment-signature": "not-inspected",
+    },
+  });
+  expect(response.status).toBe(413);
+  expect(await response.json()).toEqual({ error: "request_too_large" });
+  expect(response.headers.get("cache-control")).toBe("no-store");
+  expect(events).toEqual([]);
+});
+
+test("declared body at the limit still follows the payment flow", async () => {
+  const { app, events } = harness({ env: { MAX_BODY_BYTES: "4" } });
+  const response = await app.request("/v1/echo", {
+    method: "POST",
+    body: "1234",
+    headers: {
+      "content-length": "4",
+      "payment-signature": await signature(app),
+    },
+  });
+  expect(response.status).toBe(200);
+  expect(events).toEqual(["verify", "upstream", "settle"]);
+});
+
 test("oversized response does not settle", async () => {
   const { app, events } = harness({
     env: { MAX_BODY_BYTES: "4" },

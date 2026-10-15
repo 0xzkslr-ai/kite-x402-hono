@@ -40,6 +40,23 @@ export function createApp(
     );
   }
   let active = 0;
+  // Reject a body that is already known to exceed the configured limit before
+  // contacting the facilitator. Chunked or incorrectly declared bodies remain
+  // protected by proxy's bounded stream reader.
+  app.use("/v1/*", async (c, next) => {
+    if (!["GET", "HEAD"].includes(c.req.method)) {
+      const declaredLength = c.req.header("content-length");
+      if (
+        declaredLength &&
+        /^\d+$/.test(declaredLength) &&
+        BigInt(declaredLength) > BigInt(config.maxBodyBytes)
+      ) {
+        c.header("Cache-Control", "no-store");
+        return c.json({ error: "request_too_large" }, 413);
+      }
+    }
+    await next();
+  });
   // Cover initialization, verification, upstream and settlement, not just proxy I/O.
   // Never queue payment-bearing requests or retain their signatures.
   app.use("/v1/*", async (c, next) => {
