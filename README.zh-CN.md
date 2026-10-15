@@ -102,7 +102,7 @@ Bun.serve({ port: config.port, fetch: app.fetch });
 
 - `/v1/echo` 会映射到上游 `/echo`；`/v1/v1/forecast` 会映射到上游 `/v1/forecast`。
 - `/v1/*` 下的所有 HTTP 方法都需要付款；上游必须支持对应方法。
-- 本模板拒绝上游重定向并返回 502，不结算，避免凭据被带到其他主机。请直接配置最终上游 origin。
+- 本模板拒绝上游重定向并返回 502，不结算，避免凭据被带到其他主机。请直接配置最终上游 origin。条件请求的 304 Not Modified 不属于重定向，会正常转发，客户端的 If-None-Match / If-Modified-Since 仍然有效。
 - 会删除支付头、客户端认证头、Cookie、代理头和 hop-by-hop 头；上游返回的认证头和 Cookie 也会被删除。
 - 响应会被缓存，因此本模板不支持流式响应、SSE、WebSocket 和无限大小下载。
 - 上游动作发生在结算之前。非幂等 POST 在结算失败时不会回滚；需要 exactly-once 行为时，上游必须自行提供幂等机制。

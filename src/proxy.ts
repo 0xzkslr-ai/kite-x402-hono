@@ -48,6 +48,12 @@ export function cleanHeaders(source: Headers, authHeader: string): Headers {
 
 class BodyTooLarge extends Error {}
 
+// Only statuses that actually redirect via a Location header are refused.
+// 304 Not Modified is the answer to a conditional request the client itself
+// made (If-None-Match / If-Modified-Since); it never redirects, carries no
+// body, and must be forwarded so agents can benefit from conditional GETs.
+const REDIRECT_STATUSES = new Set([300, 301, 302, 303, 307, 308]);
+
 export async function readLimited(
   stream: ReadableStream<Uint8Array> | null,
   limit: number,
@@ -148,7 +154,7 @@ export async function proxy(
       }),
     );
     // No redirect following: an upstream cannot forward the injected credential to another host.
-    if (upstream.status >= 300 && upstream.status < 400) {
+    if (REDIRECT_STATUSES.has(upstream.status)) {
       void upstream.body?.cancel().catch(() => {});
       return Response.json(
         { error: "upstream_redirect_refused" },

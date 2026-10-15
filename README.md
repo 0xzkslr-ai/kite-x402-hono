@@ -112,6 +112,8 @@ Compatibility notes:
 - Unlike the reference template's general below-400 rule, this template **refuses
   upstream redirects** with 502, without settlement, so credentials cannot follow
   redirects to a different host. Use the final upstream origin directly.
+  Conditional `304 Not Modified` answers are not redirects and are forwarded, so
+  client-side `If-None-Match` / `If-Modified-Since` still works.
 - Payment headers, client authorization/cookies, proxy headers and hop-by-hop
   headers are removed. Upstream authentication response headers and cookies are
   also stripped. The upstream is trusted: do not select one that echoes secrets
