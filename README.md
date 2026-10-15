@@ -196,7 +196,7 @@ original bytes. Cleanup is best-effort: an injected stream producer still owns i
 underlying resources. This does not cancel or undo payment settlement, and does
 not add payment retries.
 
-### CORS support (unreleased; not in npm 0.3.1)
+### CORS support (added in 0.3.2)
 
 Configure `CORS_ORIGIN` with `*` or a specific origin (e.g. `https://agent.kite.ai`)
 to enable web browsers, dApps, and AI agent frontends to make paid cross-origin calls:

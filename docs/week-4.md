@@ -24,7 +24,8 @@ pending read, and successful multi-chunk reads at the exact size limit.
 
 Against the previous source, seven of these nine tests fail. With the fix all nine
 pass. Test payment verification is simulated; no real on-chain payment is claimed.
-The fix is included in version 0.3.1; registry publication is verified separately.
+The stream cleanup fix was published in version 0.3.1. Community PR features
+described in the root changelog are included in version 0.3.2.
 
 Cancellation is best-effort, not proof the producer released external resources.
 An injected stream must manage its own resources. This change neither aborts an

@@ -1,6 +1,6 @@
 {
   "name": "kite-x402-hono",
-  "version": "0.3.1",
+  "version": "0.3.2",
   "description": "Bun and Hono reverse proxy for x402 payments on Kite",
   "type": "module",
   "license": "Apache-2.0",

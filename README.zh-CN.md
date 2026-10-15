@@ -153,7 +153,7 @@ Bun.serve({ port: config.port, fetch: app.fetch });
 清理属于尽力执行：自定义流生产者仍须管理底层资源。
 此改动不会取消或撤销付款结算，也不增加付款重试。
 
-### 跨域资源共享 (CORS) 支持（未发布，npm 0.3.1 尚不包含）
+### 跨域资源共享 (CORS) 支持（0.3.2 新增）
 
 配置 `CORS_ORIGIN` 为 `*` 或指定 origin（例如 `https://agent.kite.ai`）可支持 Web 浏览器、dApp 及 AI Agent 前端调用付费 API：
 

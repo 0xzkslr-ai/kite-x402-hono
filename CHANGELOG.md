@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.3.2
 
 - Forward conditional 304 responses through settlement while refusing other 3xx statuses.
 - Add facilitator readiness, response request IDs and early declared-body size checks.
