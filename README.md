@@ -132,6 +132,10 @@ Compatibility notes:
 - `/healthz` is process liveness, not proof of upstream/facilitator readiness.
   Use `/readyz` to check that the facilitator is reachable and offers the
   configured network.
+- Every response carries an `X-Request-ID` header. Send your own `x-request-id`
+  (letters, digits, `.`, `_`, `-`, up to 128 chars) and it is echoed back and
+  forwarded upstream so agent, wrapper and upstream logs correlate; unsafe
+  values are replaced with a minted UUID.
 - The CLI disables Bun's short idle timeout so it does not disconnect a client
   during settlement. SDK facilitator calls default to a configurable 90-second timeout;
   deploy behind a reverse proxy with suitable request deadlines and rate limits.
