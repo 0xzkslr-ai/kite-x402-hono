@@ -1,5 +1,10 @@
 import { describe, expect, test } from "bun:test";
-import { KITE_NETWORKS, parsePrice, loadConfig } from "../src/index.js";
+import {
+  KITE_NETWORKS,
+  parsePrice,
+  resolveNetwork,
+  loadConfig,
+} from "../src/index.js";
 import { testConfig } from "./helpers.js";
 
 describe("Kite configuration", () => {
@@ -72,5 +77,27 @@ describe("Kite configuration", () => {
     ]) {
       expect(() => testConfig({ [key!]: value! })).toThrow();
     }
+  });
+  test("resolves network by symbolic name, EVM chain ID, or CAIP-2 identifier", () => {
+    expect(resolveNetwork("mainnet")).toBe(KITE_NETWORKS.mainnet);
+    expect(resolveNetwork("2366")).toBe(KITE_NETWORKS.mainnet);
+    expect(resolveNetwork(2366)).toBe(KITE_NETWORKS.mainnet);
+    expect(resolveNetwork("eip155:2366")).toBe(KITE_NETWORKS.mainnet);
+
+    expect(resolveNetwork("testnet")).toBe(KITE_NETWORKS.testnet);
+    expect(resolveNetwork("2368")).toBe(KITE_NETWORKS.testnet);
+    expect(resolveNetwork(2368)).toBe(KITE_NETWORKS.testnet);
+    expect(resolveNetwork("eip155:2368")).toBe(KITE_NETWORKS.testnet);
+
+    expect(resolveNetwork("unknown")).toBeUndefined();
+    expect(resolveNetwork("1")).toBeUndefined();
+
+    // Verify loadConfig accepts chain IDs and CAIP-2 strings
+    expect(testConfig({ KITE_NETWORK: "2368" }).chain.network).toBe(
+      "eip155:2368",
+    );
+    expect(testConfig({ KITE_NETWORK: "eip155:2366" }).chain.network).toBe(
+      "eip155:2366",
+    );
   });
 });

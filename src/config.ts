@@ -1,4 +1,9 @@
-import { KITE_NETWORKS, parsePrice, type KiteNetwork } from "./networks.js";
+import {
+  KITE_NETWORKS,
+  parsePrice,
+  resolveNetwork,
+  type KiteNetwork,
+} from "./networks.js";
 
 export interface Config {
   payTo: string;
@@ -64,10 +69,13 @@ export function loadConfig(
   const payTo = get("PAY_TO");
   if (!/^0x[\da-fA-F]{40}$/.test(payTo) || /^0x0{40}$/i.test(payTo))
     throw new Error("PAY_TO must be a nonzero EVM address");
-  const network = get("KITE_NETWORK", "mainnet");
-  if (network !== "mainnet" && network !== "testnet")
-    throw new Error("KITE_NETWORK must be mainnet or testnet");
-  const chain = KITE_NETWORKS[network];
+  const networkInput = get("KITE_NETWORK", "mainnet");
+  const chain = resolveNetwork(networkInput);
+  if (!chain) {
+    throw new Error(
+      "KITE_NETWORK must be mainnet, testnet, or a recognized Kite chain ID (2366, 2368, eip155:2366, eip155:2368)",
+    );
+  }
   const price = get("PRICE_USD", "0.001").replace(/^\$/, "");
   parsePrice(price, chain);
   const authHeader = get("UPSTREAM_AUTH_HEADER", "Authorization").toLowerCase();
