@@ -32,13 +32,16 @@ export function createApp(
   // gets a freshly minted UUID. Caller-supplied IDs also travel upstream,
   // because x-request-id is not on the proxy's blocked list.
   app.use("*", async (c, next) => {
+    const start = performance.now();
     const inbound = c.req.header("x-request-id");
     const requestId =
       inbound && REQUEST_ID_PATTERN.test(inbound)
         ? inbound
         : crypto.randomUUID();
     await next();
+    const durationMs = performance.now() - start;
     c.res.headers.set("x-request-id", requestId);
+    c.res.headers.set("x-response-time", `${durationMs.toFixed(2)}ms`);
   });
   if (config.corsOrigin) {
     const corsMiddleware = cors({
@@ -67,6 +70,7 @@ export function createApp(
         "X-Payment-Response",
         "Retry-After",
         "X-Request-ID",
+        "X-Response-Time",
       ],
       maxAge: 86400,
     });
@@ -171,6 +175,17 @@ export function createApp(
       asset: config.chain.symbol,
       price: `$${config.price}`,
     }),
+  );
+  // Standard Kubernetes liveness probe (independent of facilitator and network dependencies)
+  app.get("/livez", (c) =>
+    c.json(
+      {
+        ok: true,
+        status: "alive",
+      },
+      200,
+      { "cache-control": "no-store" },
+    ),
   );
   // Readiness is stronger than liveness: the process is up and the facilitator
   // advertises the configured protocol and network; this does not prove settlement.

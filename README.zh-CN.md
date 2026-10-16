@@ -161,6 +161,11 @@ Bun.serve({ port: config.port, fetch: app.fetch });
 - 付费挑战 `402 Payment Required` 与正常响应均通过 `Access-Control-Expose-Headers` 暴露 `Payment-Required`、`Payment-Response`、`Retry-After`，方便浏览器端 `fetch` 读取付款挑战及结算回执。
 - 未配置 `CORS_ORIGIN` 时（默认），不注册 CORS 中间件，保持零额外开销与向下兼容。
 
+### 存活探针与耗时追踪 (Liveness Probe & Response Timing)（0.3.3 新增）
+
+- `GET /livez`: 标准 Kubernetes 存活探针，立即返回 `200 {"ok":true,"status":"alive"}` 及 `Cache-Control: no-store`。该探针无需任何网络 I/O，完全独立于 facilitator 可用性，可有效防止容器编排平台在 facilitator 瞬时波动时误杀容器。
+- `X-Response-Time`: 在所有入站响应中添加毫秒级处理耗时头部（如 `12.45ms`），并通过 CORS `Access-Control-Expose-Headers` 暴露给前端 dApp 与监控系统，便于准确区分网络传输、上游响应与链上结算各阶段延迟。
+
 ### 检查命令
 
 ```sh
