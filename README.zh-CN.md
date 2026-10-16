@@ -29,12 +29,13 @@ bun run example
 bun run start
 curl -i http://localhost:8080/healthz
 curl -i http://localhost:8080/readyz
+curl -i http://localhost:8080/stats
 curl -i 'http://localhost:8080/v1/echo?message=hello'
 ```
 
 `/healthz` 返回 200，且不会访问 facilitator。`/readyz` 会实际调用
 facilitator 的 `/supported` 接口，只有当前配置的 Kite 网络、x402 v2 和 exact 模式均被支持时才返回
-200；这不保证上游就绪或实际结算成功。`/v1/echo` 在 facilitator 可访问并支持
+200；这不保证上游就绪或实际结算成功。`/stats` 返回运行指标（运行秒数、当前并发占用率、请求总量、挑战数与成功数），携带 `Cache-Control: no-store` 且无需访问 facilitator。`/v1/echo` 在 facilitator 可访问并支持
 所选网络时，未付款请求会返回带有 x402 v2 `PAYMENT-REQUIRED` 的 402。如果 facilitator
 不可用，会返回 503；未完成付款验证前，代理不会调用上游。
 
