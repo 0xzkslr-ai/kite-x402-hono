@@ -114,15 +114,20 @@ export async function proxy(
   headers.set("accept-encoding", "identity");
   if (config.authValue) headers.set(config.authHeader, config.authValue);
   let body: Uint8Array<ArrayBuffer> | undefined;
-  const bodySignal = AbortSignal.any([
-    request.signal,
-    AbortSignal.timeout(config.timeoutMs),
-  ]);
+  const bodyController = new AbortController();
+  const onBodyAbort = () => bodyController.abort();
+  request.signal.addEventListener("abort", onBodyAbort, { once: true });
+  if (request.signal.aborted) bodyController.abort();
+  const bodyTimer = setTimeout(() => bodyController.abort(), config.timeoutMs);
   try {
     if (!["GET", "HEAD"].includes(request.method))
-      body = await readLimited(request.body, config.maxBodyBytes, bodySignal);
+      body = await readLimited(
+        request.body,
+        config.maxBodyBytes,
+        bodyController.signal,
+      );
   } catch (error) {
-    if (bodySignal.aborted)
+    if (bodyController.signal.aborted)
       return Response.json(
         { error: "request_timeout_or_abort" },
         { status: 408 },
@@ -136,6 +141,9 @@ export async function proxy(
       },
       { status: error instanceof BodyTooLarge ? 413 : 400 },
     );
+  } finally {
+    clearTimeout(bodyTimer);
+    request.signal.removeEventListener("abort", onBodyAbort);
   }
   const controller = new AbortController();
   const onAbort = () => controller.abort();
