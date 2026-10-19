@@ -89,6 +89,8 @@ injection for tests. Never use a simulated facilitator in a production service.
 | `MAX_CONCURRENT_REQUESTS` | `64`                                 | Concurrency admission limit for `/v1/*` requests (1 to 10000)                   |
 | `FACILITATOR_TIMEOUT_MS`  | `90000`                              | Timeout in ms for facilitator network requests (1 to 300000)                    |
 | `CORS_ORIGIN`             | Unset                                | Allowed origin for CORS (`*` or HTTP(S) origin); enables browser dApp clients   |
+| `LOG_FORMAT`              | `json`                               | Access log output format (`json` or `dev`)                                      |
+| `LOG_ENABLED`             | `true`                               | Enable structured request logging (`true` or `false`)                           |
 
 HTTPS is required for upstream/facilitator URLs except localhost development.
 The example `.env` explicitly selects testnet; the compatibility default remains
