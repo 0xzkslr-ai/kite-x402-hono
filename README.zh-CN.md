@@ -161,6 +161,11 @@ Bun.serve({ port: config.port, fetch: app.fetch });
 - 付费挑战 `402 Payment Required` 与正常响应均通过 `Access-Control-Expose-Headers` 暴露 `Payment-Required`、`Payment-Response`、`Retry-After`，方便浏览器端 `fetch` 读取付款挑战及结算回执。
 - 未配置 `CORS_ORIGIN` 时（默认），不注册 CORS 中间件，保持零额外开销与向下兼容。
 
+### 安全响应头与结构化 404（0.3.3 新增）
+
+- 所有响应均自动携带基础 HTTP 安全头部（`X-Content-Type-Options: nosniff`、`X-Frame-Options: SAMEORIGIN`、`X-XSS-Protection: 0`、`Referrer-Policy: no-referrer`），防御 MIME 嗅探、点击劫持与跨站脚本威胁。
+- 未匹配路由统一返回结构化 JSON 响应 `404 {"error":"not_found"}`，并附加 `Cache-Control: no-store` 头部，取代默认纯文本报错。
+
 ### 检查命令
 
 ```sh
