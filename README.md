@@ -131,6 +131,10 @@ Compatibility notes:
 - Requests whose valid `Content-Length` already exceeds `MAX_BODY_BYTES` are
   rejected before facilitator verification. Streaming, chunked and incorrectly
   declared bodies are still enforced while the proxy reads them.
+- Stalled or aborted request body uploads are bounded by `UPSTREAM_TIMEOUT_MS`. If a
+  client disconnects or stalls while streaming upload chunks, the body reader aborts
+  promptly with `408 Request Timeout` (`{"error":"request_timeout_or_abort"}`) and cleans up
+  stream locks and timer handles without contacting upstream.
 - Upstream actions happen before settlement. For non-idempotent POST operations,
   settlement failure does not undo the upstream action. Use an upstream with
   idempotency support; the wrapper does not provide exactly-once execution.
