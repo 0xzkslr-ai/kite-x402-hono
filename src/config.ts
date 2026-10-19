@@ -15,6 +15,7 @@ export interface Config {
   maxConcurrentRequests?: number;
   facilitatorTimeoutMs?: number;
   corsOrigin?: string | undefined;
+  maintenanceMode?: boolean;
 }
 
 export function parseCorsOrigin(value: string): string {
@@ -141,5 +142,8 @@ export function loadConfig(
     corsOrigin: get("CORS_ORIGIN")
       ? parseCorsOrigin(get("CORS_ORIGIN"))
       : undefined,
+    maintenanceMode:
+      get("MAINTENANCE_MODE").toLowerCase() === "true" ||
+      get("MAINTENANCE_MODE") === "1",
   };
 }

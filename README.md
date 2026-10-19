@@ -89,6 +89,7 @@ injection for tests. Never use a simulated facilitator in a production service.
 | `MAX_CONCURRENT_REQUESTS` | `64`                                 | Concurrency admission limit for `/v1/*` requests (1 to 10000)                   |
 | `FACILITATOR_TIMEOUT_MS`  | `90000`                              | Timeout in ms for facilitator network requests (1 to 300000)                    |
 | `CORS_ORIGIN`             | Unset                                | Allowed origin for CORS (`*` or HTTP(S) origin); enables browser dApp clients   |
+| `MAINTENANCE_MODE`        | `false`                              | Drain switch (`true` or `1`); `/readyz` & `/v1/*` return 503 with Retry-After   |
 
 HTTPS is required for upstream/facilitator URLs except localhost development.
 The example `.env` explicitly selects testnet; the compatibility default remains

@@ -83,6 +83,7 @@ Bun.serve({ port: config.port, fetch: app.fetch });
 | `MAX_CONCURRENT_REQUESTS` | `64`                                 | `/v1/*` 路径的并发准入上限（1 至 10000）            |
 | `FACILITATOR_TIMEOUT_MS`  | `90000`                              | 请求 facilitator 的网络超时毫秒数（1 至 300000）    |
 | `CORS_ORIGIN`             | 未配置                               | 允许的跨域来源（`*` 或 HTTP(S) origin），支持浏览器 |
+| `MAINTENANCE_MODE`        | `false`                              | 维护排空开关（`true` 或 `1`）；`/readyz` 与 `/v1/*` 返回 503 与 Retry-After |
 
 除本地开发外，上游和 facilitator 必须使用 HTTPS。示例 `.env` 明确选择 testnet，
 但兼容性默认值仍是 mainnet。本代理不需要钱包私钥。
