@@ -13,10 +13,38 @@ import { ExactEvmScheme } from "@x402/evm/exact/server";
 import { loadConfig, parseCorsOrigin, type Config } from "./config.js";
 import { parsePrice } from "./networks.js";
 import { proxy, REQUEST_ID_PATTERN, type FetchUpstream } from "./proxy.js";
+import { PaymentNonceReplayGuard } from "./nonce-guard.js";
 
 export interface AppOptions {
-  facilitator?: FacilitatorClient;
-  fetchUpstream?: FetchUpstream;
+  facilitator?: FacilitatorClient | undefined;
+  fetchUpstream?: FetchUpstream | undefined;
+  nonceGuard?: PaymentNonceReplayGuard | undefined;
+}
+
+export function extractNonceAndPayer(
+  headerValue: string,
+): { payer: string; nonce: string } | undefined {
+  try {
+    const raw = Buffer.from(headerValue, "base64").toString("utf-8");
+    const parsed = JSON.parse(raw);
+    const auth = parsed?.payload?.authorization;
+    if (
+      auth &&
+      typeof auth.nonce === "string" &&
+      typeof auth.from === "string"
+    ) {
+      return { payer: auth.from, nonce: auth.nonce };
+    }
+    if (
+      typeof parsed?.payload?.nonce === "string" &&
+      typeof parsed?.payload?.payer === "string"
+    ) {
+      return { payer: parsed.payload.payer, nonce: parsed.payload.nonce };
+    }
+  } catch {
+    // Malformed header handled downstream
+  }
+  return undefined;
 }
 
 export function createApp(
@@ -211,6 +239,7 @@ export function createApp(
       { "cache-control": "no-store" },
     );
   });
+  const nonceGuard = options.nonceGuard ?? new PaymentNonceReplayGuard();
   app.use("/v1/*", async (c, next) => {
     c.header("cache-control", "no-store");
     try {
@@ -222,7 +251,35 @@ export function createApp(
     } catch {
       return c.json({ error: "facilitator_unavailable" }, 503);
     }
-    return payments(c, next);
+
+    const sigHeader =
+      c.req.header("payment-signature") ?? c.req.header("x-payment");
+    const extracted = sigHeader ? extractNonceAndPayer(sigHeader) : undefined;
+    if (extracted && !nonceGuard.acquire(extracted.payer, extracted.nonce)) {
+      return c.json(
+        {
+          error: "payment_nonce_replay_detected",
+          message: "Payment nonce already consumed or currently in-flight",
+        },
+        402,
+      );
+    }
+
+    try {
+      await payments(c, next);
+      if (extracted) {
+        if (c.res.status < 400 && c.res.headers.has("payment-response")) {
+          nonceGuard.commit(extracted.payer, extracted.nonce);
+        } else {
+          nonceGuard.release(extracted.payer, extracted.nonce);
+        }
+      }
+    } catch (err) {
+      if (extracted) {
+        nonceGuard.release(extracted.payer, extracted.nonce);
+      }
+      throw err;
+    }
   });
   app.all("/v1/*", (c) =>
     proxy(
