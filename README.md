@@ -31,10 +31,13 @@ In another terminal in the same directory:
 bun run start
 curl -i http://localhost:8080/healthz
 curl -i http://localhost:8080/readyz
+curl -i http://localhost:8080/.well-known/x402
 curl -i 'http://localhost:8080/v1/echo?message=hello'
 ```
 
-`/healthz` returns 200 without contacting a facilitator. `/readyz` actually
+`/healthz` returns 200 without contacting a facilitator. `/.well-known/x402` exposes
+unmetered capability and pricing discovery (Kite network, token address, decimals,
+atomic price, and receiver wallet) for autonomous AI agents. `/readyz` actually
 calls the facilitator's `/supported` endpoint and returns 200 only when the
 configured Kite network is offered with x402 v2 and the exact scheme, so orchestrators can distinguish
 "process up" from "supported payment protocol". This does not prove that
