@@ -40,6 +40,7 @@ export function harness(
     settles?: boolean;
     upstream?: FetchUpstream;
     facilitator?: Partial<FacilitatorClient>;
+    idempotencyCache?: import("../src/idempotency.js").IdempotencyCache;
   } = {},
 ) {
   const events: string[] = [];
@@ -69,6 +70,7 @@ export function harness(
   };
   const app = createApp(config, {
     facilitator,
+    idempotencyCache: options.idempotencyCache,
     fetchUpstream: async (request) => {
       events.push("upstream");
       return options.upstream
