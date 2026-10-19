@@ -29,6 +29,7 @@ export function testConfig(env: Record<string, string> = {}): Config {
     PAY_TO,
     UPSTREAM_URL: "https://upstream.example",
     KITE_NETWORK: "testnet",
+    LOG_ENABLED: "false",
     ...env,
   });
 }

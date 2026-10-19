@@ -13,10 +13,12 @@ import { ExactEvmScheme } from "@x402/evm/exact/server";
 import { loadConfig, parseCorsOrigin, type Config } from "./config.js";
 import { parsePrice } from "./networks.js";
 import { proxy, REQUEST_ID_PATTERN, type FetchUpstream } from "./proxy.js";
+import { createAccessLogger } from "./logger.js";
 
 export interface AppOptions {
   facilitator?: FacilitatorClient;
   fetchUpstream?: FetchUpstream;
+  logSink?: (line: string) => void;
 }
 
 export function createApp(
@@ -40,6 +42,19 @@ export function createApp(
     await next();
     c.res.headers.set("x-request-id", requestId);
   });
+  if (config.logEnabled !== false) {
+    app.use(
+      "*",
+      createAccessLogger(
+        {
+          format: config.logFormat,
+          enabled: config.logEnabled,
+          skipHealthz: true,
+        },
+        options.logSink,
+      ),
+    );
+  }
   if (config.corsOrigin) {
     const corsMiddleware = cors({
       origin: parseCorsOrigin(config.corsOrigin),
