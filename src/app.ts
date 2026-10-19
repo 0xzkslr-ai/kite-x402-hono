@@ -13,6 +13,7 @@ import { ExactEvmScheme } from "@x402/evm/exact/server";
 import { loadConfig, parseCorsOrigin, type Config } from "./config.js";
 import { parsePrice } from "./networks.js";
 import { proxy, REQUEST_ID_PATTERN, type FetchUpstream } from "./proxy.js";
+import { evaluateIpFilter, extractClientIp } from "./firewall.js";
 
 export interface AppOptions {
   facilitator?: FacilitatorClient;
@@ -101,6 +102,28 @@ export function createApp(
     );
   }
   let active = 0;
+  if (config.firewallAllowlist?.length || config.firewallBlocklist?.length) {
+    const filterConfig = {
+      allowlist: config.firewallAllowlist,
+      blocklist: config.firewallBlocklist,
+    };
+    app.use("/v1/*", async (c, next) => {
+      const clientIp = extractClientIp(c.req.raw.headers);
+      const verdict = evaluateIpFilter(clientIp, filterConfig);
+      if (!verdict.allowed) {
+        c.header("cache-control", "no-store");
+        return c.json(
+          {
+            error: "forbidden_ip",
+            reason: verdict.reason,
+            ip: clientIp ?? "unknown",
+          },
+          403,
+        );
+      }
+      return next();
+    });
+  }
   // Reject a body that is already known to exceed the configured limit before
   // contacting the facilitator. Chunked or incorrectly declared bodies remain
   // protected by proxy's bounded stream reader.

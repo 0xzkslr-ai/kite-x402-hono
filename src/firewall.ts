@@ -1,6 +1,6 @@
 export interface IpFilterConfig {
-  allowlist?: string[];
-  blocklist?: string[];
+  allowlist?: string[] | undefined;
+  blocklist?: string[] | undefined;
 }
 
 export interface IpFilterVerdict {
@@ -40,7 +40,11 @@ export function ipv4ToNumber(ip: string): number | null {
  * Checks whether an IPv4 address falls within a given CIDR block (e.g. "10.0.0.0/8" or "192.168.1.1").
  */
 export function matchIpv4Cidr(ip: string, rule: string): boolean {
-  const [subnet, prefixStr] = rule.split('/');
+  const parts = rule.split('/');
+  const subnet = parts[0];
+  const prefixStr = parts[1];
+
+  if (!subnet) return false;
   const ipNum = ipv4ToNumber(ip);
   const subnetNum = ipv4ToNumber(subnet);
 
@@ -120,7 +124,8 @@ export function evaluateIpFilter(clientIp: string | null | undefined, config: Ip
 export function extractClientIp(headers: Headers): string | null {
   const forwarded = headers.get('x-forwarded-for');
   if (forwarded) {
-    const client = forwarded.split(',')[0].trim();
+    const first = forwarded.split(',')[0];
+    const client = first ? first.trim() : '';
     if (client.length > 0) return client;
   }
 

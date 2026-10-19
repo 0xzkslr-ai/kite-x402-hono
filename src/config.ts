@@ -1,4 +1,5 @@
 import { KITE_NETWORKS, parsePrice, type KiteNetwork } from "./networks.js";
+import { parseIpList } from "./firewall.js";
 
 export interface Config {
   payTo: string;
@@ -15,6 +16,8 @@ export interface Config {
   maxConcurrentRequests?: number;
   facilitatorTimeoutMs?: number;
   corsOrigin?: string | undefined;
+  firewallAllowlist?: string[] | undefined;
+  firewallBlocklist?: string[] | undefined;
 }
 
 export function parseCorsOrigin(value: string): string {
@@ -140,6 +143,12 @@ export function loadConfig(
     ),
     corsOrigin: get("CORS_ORIGIN")
       ? parseCorsOrigin(get("CORS_ORIGIN"))
+      : undefined,
+    firewallAllowlist: get("FIREWALL_ALLOWLIST")
+      ? parseIpList(get("FIREWALL_ALLOWLIST"))
+      : undefined,
+    firewallBlocklist: get("FIREWALL_BLOCKLIST")
+      ? parseIpList(get("FIREWALL_BLOCKLIST"))
       : undefined,
   };
 }
