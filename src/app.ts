@@ -16,9 +16,9 @@ import { proxy, REQUEST_ID_PATTERN, type FetchUpstream } from "./proxy.js";
 import { IdempotencyCache } from "./idempotency.js";
 
 export interface AppOptions {
-  facilitator?: FacilitatorClient;
-  fetchUpstream?: FetchUpstream;
-  idempotencyCache?: IdempotencyCache;
+  facilitator?: FacilitatorClient | undefined;
+  fetchUpstream?: FetchUpstream | undefined;
+  idempotencyCache?: IdempotencyCache | undefined;
 }
 
 export function createApp(
@@ -240,7 +240,7 @@ export function createApp(
     if (state.status === "cached") {
       const respHeaders = new Headers(state.response.headers);
       respHeaders.set("idempotent-replayed", "true");
-      return new Response(state.response.body, {
+      return new Response(state.response.body as unknown as BodyInit, {
         status: state.response.statusCode,
         headers: respHeaders,
       });
@@ -248,7 +248,7 @@ export function createApp(
 
     try {
       await next();
-      if (c.res && c.res.status < 500) {
+      if (c.res && c.res.status !== 402 && c.res.status < 500) {
         const cloned = c.res.clone();
         const bodyBuf = new Uint8Array(await cloned.arrayBuffer());
         idempotency.complete(rawKey, c.res.status, c.res.headers, bodyBuf);

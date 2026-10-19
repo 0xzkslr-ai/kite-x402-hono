@@ -40,7 +40,7 @@ export function harness(
     settles?: boolean;
     upstream?: FetchUpstream;
     facilitator?: Partial<FacilitatorClient>;
-    idempotencyCache?: import("../src/idempotency.js").IdempotencyCache;
+    idempotencyCache?: import("../src/idempotency.js").IdempotencyCache | undefined;
   } = {},
 ) {
   const events: string[] = [];
