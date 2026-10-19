@@ -161,6 +161,16 @@ Bun.serve({ port: config.port, fetch: app.fetch });
 - 付费挑战 `402 Payment Required` 与正常响应均通过 `Access-Control-Expose-Headers` 暴露 `Payment-Required`、`Payment-Response`、`Retry-After`，方便浏览器端 `fetch` 读取付款挑战及结算回执。
 - 未配置 `CORS_ORIGIN` 时（默认），不注册 CORS 中间件，保持零额外开销与向下兼容。
 
+### 速率限制（0.3.3 新增）
+
+通过 `RATE_LIMIT_RPS` 与 `RATE_LIMIT_BURST` 提供内置的令牌桶限流保护：
+
+- `RATE_LIMIT_RPS`: 每个客户端 IP 每秒允许的请求数（未配置时默认不启用限流，保持零额外开销）。
+- `RATE_LIMIT_BURST`: 最大突发桶容量（默认为 `2 * RATE_LIMIT_RPS`）。
+- 正常响应自动包含速率头：`X-RateLimit-Limit`、`X-RateLimit-Remaining` 与 `X-RateLimit-Reset`。
+- 超额请求在进入付费验证及上游代理前直接返回 `429 {"error":"rate_limit_exceeded"}` 与 `Retry-After`，防止恶意刷量拖垮服务。
+- `/healthz` 健康探针与浏览器 `OPTIONS` 跨域预检请求默认免除限流。
+
 ### 检查命令
 
 ```sh

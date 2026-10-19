@@ -168,6 +168,19 @@ for upstream capacity and response sizes; use edge rate limits for hostile traff
 Do not treat every 503 as safe to retry: only this wrapper's `service_busy`
 response denotes pre-payment rejection. Settlement errors still need reconciliation.
 
+### Rate limiting (added in 0.3.3)
+
+`RATE_LIMIT_RPS` and `RATE_LIMIT_BURST` provide built-in in-memory token-bucket request throttling:
+
+- `RATE_LIMIT_RPS`: Allowed requests per second per client IP (optional; rate limiting is disabled when unset).
+- `RATE_LIMIT_BURST`: Maximum burst capacity (defaults to `2 * RATE_LIMIT_RPS`).
+- Evaluated responses include standard rate limit headers:
+  - `X-RateLimit-Limit`: configured RPS limit.
+  - `X-RateLimit-Remaining`: available token capacity.
+  - `X-RateLimit-Reset`: seconds until bucket refill.
+- Exceeding clients receive `429 {"error":"rate_limit_exceeded"}` with `Retry-After: <seconds>` and `Cache-Control: no-store` before payment verification or upstream proxying.
+- `/healthz` health probes and browser `OPTIONS` preflights are always exempt from rate limiting.
+
 ### Facilitator deadlines (added in 0.3.0)
 
 `FACILITATOR_TIMEOUT_MS` accepts integers from 1 to 300000, default 90000.
