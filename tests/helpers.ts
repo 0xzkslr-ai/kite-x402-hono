@@ -41,6 +41,7 @@ export function harness(
     settles?: boolean;
     upstream?: FetchUpstream;
     facilitator?: Partial<FacilitatorClient>;
+    logSink?: (line: string) => void;
   } = {},
 ) {
   const events: string[] = [];
@@ -70,6 +71,7 @@ export function harness(
   };
   const app = createApp(config, {
     facilitator,
+    logSink: options.logSink,
     fetchUpstream: async (request) => {
       events.push("upstream");
       return options.upstream

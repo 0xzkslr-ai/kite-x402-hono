@@ -18,7 +18,7 @@ import { createAccessLogger } from "./logger.js";
 export interface AppOptions {
   facilitator?: FacilitatorClient;
   fetchUpstream?: FetchUpstream;
-  logSink?: (line: string) => void;
+  logSink?: ((line: string) => void) | undefined;
 }
 
 export function createApp(
@@ -26,6 +26,19 @@ export function createApp(
   options: AppOptions = {},
 ): Hono {
   const app = new Hono();
+  if (config.logEnabled !== false) {
+    app.use(
+      "*",
+      createAccessLogger(
+        {
+          format: config.logFormat,
+          enabled: config.logEnabled,
+          skipHealthz: true,
+        },
+        options.logSink,
+      ),
+    );
+  }
   // Label every response — paid answers, 402 challenges, guard-rail rejections
   // and errors alike — with a request ID the caller can quote back in issues
   // and correlate across agent, wrapper and upstream logs. A caller-supplied
@@ -42,19 +55,6 @@ export function createApp(
     await next();
     c.res.headers.set("x-request-id", requestId);
   });
-  if (config.logEnabled !== false) {
-    app.use(
-      "*",
-      createAccessLogger(
-        {
-          format: config.logFormat,
-          enabled: config.logEnabled,
-          skipHealthz: true,
-        },
-        options.logSink,
-      ),
-    );
-  }
   if (config.corsOrigin) {
     const corsMiddleware = cors({
       origin: parseCorsOrigin(config.corsOrigin),
