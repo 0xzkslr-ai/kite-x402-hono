@@ -175,6 +175,11 @@ export function createApp(
   // Readiness is stronger than liveness: the process is up and the facilitator
   // advertises the configured protocol and network; this does not prove settlement.
   app.get("/readyz", async (c) => {
+    if (config.maintenanceMode) {
+      return c.json({ ok: false, error: "maintenance_mode" }, 503, {
+        "cache-control": "no-store",
+      });
+    }
     let supported;
     try {
       supported = await facilitator.getSupported();
@@ -213,6 +218,19 @@ export function createApp(
   });
   app.use("/v1/*", async (c, next) => {
     c.header("cache-control", "no-store");
+    if (config.maintenanceMode) {
+      return c.json(
+        {
+          error: "maintenance_mode",
+          message: "Service is currently undergoing maintenance",
+        },
+        503,
+        {
+          "retry-after": "60",
+          "cache-control": "no-store",
+        },
+      );
+    }
     try {
       initialization ??= httpServer.initialize().catch((error) => {
         initialization = undefined;
