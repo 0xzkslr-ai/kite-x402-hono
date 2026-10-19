@@ -136,10 +136,13 @@ Compatibility notes:
   idempotency support; the wrapper does not provide exactly-once execution.
 - A facilitator timeout may leave the on-chain settlement outcome unknown. An
   error response is not proof of no charge. Reconcile before retrying a payment.
-- `/healthz` is process liveness, not proof of upstream/facilitator readiness.
-  Use `/readyz` to check that the facilitator is reachable and offers the
-  configured network, x402 v2 and exact scheme. Each probe contacts the facilitator;
+- `/healthz` and `/livez` provide lightweight process liveness checks without
+  contacting backends or consuming concurrency slots.
+- `/readyz` checks downstream readiness: the wrapper process is up and the facilitator
+  advertises the configured protocol and network. Each probe contacts the facilitator;
   use an appropriate probe interval. It does not verify upstream health or actual settlement.
+- `/metrics` exposes internal diagnostics (uptime, total/active requests, HTTP status
+  distribution counts, and process memory usage) without contacting backends.
 - Every response carries an `X-Request-ID` header. Send your own `x-request-id`
   (letters, digits, `.`, `_`, `~`, `-`, up to 128 chars) and it is echoed back and
   forwarded upstream so agent, wrapper and upstream logs correlate; unsafe
