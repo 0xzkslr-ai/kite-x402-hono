@@ -212,6 +212,14 @@ to enable web browsers, dApps, and AI agent frontends to make paid cross-origin 
 - When `CORS_ORIGIN` is unset (the default), CORS middleware is omitted entirely
   with zero overhead and backwards-compatible behavior.
 
+### Idempotency Key support (added in 0.3.3)
+
+Clients and autonomous AI agents can supply an `Idempotency-Key` header (`[A-Za-z0-9_.:~-]{1,128}`) on `/v1/*` endpoints to protect against duplicate charges during network disconnections or retries:
+
+- **In-flight Lock**: If a concurrent request arrives with the same `Idempotency-Key` while the initial payment or upstream call is still in progress, the wrapper responds immediately with `409 Conflict` (`{"error":"idempotency_conflict"}`).
+- **Cached Replay**: Once an idempotent request succeeds, its HTTP status, headers, and body are retained in an in-memory `IdempotencyCache` (10-minute default TTL). Retrying the same key returns the cached response with `Idempotent-Replayed: true` without contacting the facilitator or invoking the upstream again.
+- **Payment Safety**: Unfulfilled `402 Payment Required` challenges are never cached, allowing clients to receive the challenge and submit payment without key conflicts.
+
 ### Commands
 
 ```sh
