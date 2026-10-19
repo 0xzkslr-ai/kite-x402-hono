@@ -239,7 +239,7 @@ export function createApp(
       { "cache-control": "no-store" },
     );
   });
-  const nonceGuard = options.nonceGuard ?? new PaymentNonceReplayGuard();
+  const nonceGuard = options.nonceGuard;
   app.use("/v1/*", async (c, next) => {
     c.header("cache-control", "no-store");
     try {
@@ -252,34 +252,42 @@ export function createApp(
       return c.json({ error: "facilitator_unavailable" }, 503);
     }
 
-    const sigHeader =
-      c.req.header("payment-signature") ?? c.req.header("x-payment");
-    const extracted = sigHeader ? extractNonceAndPayer(sigHeader) : undefined;
-    if (extracted && !nonceGuard.acquire(extracted.payer, extracted.nonce)) {
-      return c.json(
-        {
-          error: "payment_nonce_replay_detected",
-          message: "Payment nonce already consumed or currently in-flight",
-        },
-        402,
-      );
-    }
+    if (nonceGuard) {
+      const sigHeader =
+        c.req.header("payment-signature") ?? c.req.header("x-payment");
+      const extracted = sigHeader ? extractNonceAndPayer(sigHeader) : undefined;
+      if (extracted && !nonceGuard.acquire(extracted.payer, extracted.nonce)) {
+        return c.json(
+          {
+            error: "payment_nonce_replay_detected",
+            message: "Payment nonce already consumed or currently in-flight",
+          },
+          402,
+        );
+      }
 
-    try {
-      await payments(c, next);
-      if (extracted) {
-        if (c.res.status < 400 && c.res.headers.has("payment-response")) {
-          nonceGuard.commit(extracted.payer, extracted.nonce);
-        } else {
+      try {
+        const res = await payments(c, next);
+        if (extracted) {
+          const isSuccess =
+            (res && res.status < 400 && res.headers.has("payment-response")) ||
+            (c.res && c.res.status < 400 && c.res.headers.has("payment-response"));
+          if (isSuccess) {
+            nonceGuard.commit(extracted.payer, extracted.nonce);
+          } else {
+            nonceGuard.release(extracted.payer, extracted.nonce);
+          }
+        }
+        return res;
+      } catch (err) {
+        if (extracted) {
           nonceGuard.release(extracted.payer, extracted.nonce);
         }
+        throw err;
       }
-    } catch (err) {
-      if (extracted) {
-        nonceGuard.release(extracted.payer, extracted.nonce);
-      }
-      throw err;
     }
+
+    return payments(c, next);
   });
   app.all("/v1/*", (c) =>
     proxy(

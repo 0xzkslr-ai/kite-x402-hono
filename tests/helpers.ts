@@ -8,6 +8,7 @@ import {
   createApp,
   loadConfig,
   KITE_NETWORKS,
+  PaymentNonceReplayGuard,
   type Config,
 } from "../src/index.js";
 import type { FetchUpstream } from "../src/proxy.js";
@@ -40,6 +41,7 @@ export function harness(
     settles?: boolean;
     upstream?: FetchUpstream;
     facilitator?: Partial<FacilitatorClient>;
+    nonceGuard?: PaymentNonceReplayGuard;
   } = {},
 ) {
   const events: string[] = [];
@@ -69,6 +71,7 @@ export function harness(
   };
   const app = createApp(config, {
     facilitator,
+    nonceGuard: options.nonceGuard,
     fetchUpstream: async (request) => {
       events.push("upstream");
       return options.upstream
