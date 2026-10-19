@@ -13,10 +13,12 @@ import { ExactEvmScheme } from "@x402/evm/exact/server";
 import { loadConfig, parseCorsOrigin, type Config } from "./config.js";
 import { parsePrice } from "./networks.js";
 import { proxy, REQUEST_ID_PATTERN, type FetchUpstream } from "./proxy.js";
+import { IdempotencyCache } from "./idempotency.js";
 
 export interface AppOptions {
   facilitator?: FacilitatorClient;
   fetchUpstream?: FetchUpstream;
+  idempotencyCache?: IdempotencyCache;
 }
 
 export function createApp(
@@ -59,6 +61,7 @@ export function createApp(
         "X-Payment",
         "X-Requested-With",
         "X-Request-ID",
+        "Idempotency-Key",
       ],
       exposeHeaders: [
         "Payment-Required",
@@ -67,6 +70,7 @@ export function createApp(
         "X-Payment-Response",
         "Retry-After",
         "X-Request-ID",
+        "Idempotent-Replayed",
       ],
       maxAge: 86400,
     });
@@ -210,6 +214,51 @@ export function createApp(
       200,
       { "cache-control": "no-store" },
     );
+  });
+  const idempotency = options.idempotencyCache ?? new IdempotencyCache();
+  app.use("/v1/*", async (c, next) => {
+    const rawKey = c.req.header("idempotency-key");
+    if (!rawKey) {
+      return next();
+    }
+    if (!idempotency.validateKey(rawKey)) {
+      c.header("cache-control", "no-store");
+      return c.json({ error: "invalid_idempotency_key" }, 400);
+    }
+    const state = idempotency.acquire(rawKey);
+    if (state.status === "in_flight") {
+      c.header("cache-control", "no-store");
+      return c.json(
+        {
+          error: "idempotency_conflict",
+          message:
+            "A request with this Idempotency-Key is currently in progress.",
+        },
+        409,
+      );
+    }
+    if (state.status === "cached") {
+      const respHeaders = new Headers(state.response.headers);
+      respHeaders.set("idempotent-replayed", "true");
+      return new Response(state.response.body, {
+        status: state.response.statusCode,
+        headers: respHeaders,
+      });
+    }
+
+    try {
+      await next();
+      if (c.res && c.res.status < 500) {
+        const cloned = c.res.clone();
+        const bodyBuf = new Uint8Array(await cloned.arrayBuffer());
+        idempotency.complete(rawKey, c.res.status, c.res.headers, bodyBuf);
+      } else {
+        idempotency.release(rawKey);
+      }
+    } catch (err) {
+      idempotency.release(rawKey);
+      throw err;
+    }
   });
   app.use("/v1/*", async (c, next) => {
     c.header("cache-control", "no-store");
