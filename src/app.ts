@@ -24,6 +24,11 @@ export function createApp(
   options: AppOptions = {},
 ): Hono {
   const app = new Hono();
+  const startTime = Date.now();
+  let totalRequests = 0;
+  let activeRequests = 0;
+  const statusCounts: Record<string, number> = {};
+
   // Label every response — paid answers, 402 challenges, guard-rail rejections
   // and errors alike — with a request ID the caller can quote back in issues
   // and correlate across agent, wrapper and upstream logs. A caller-supplied
@@ -32,12 +37,22 @@ export function createApp(
   // gets a freshly minted UUID. Caller-supplied IDs also travel upstream,
   // because x-request-id is not on the proxy's blocked list.
   app.use("*", async (c, next) => {
+    totalRequests++;
+    activeRequests++;
     const inbound = c.req.header("x-request-id");
     const requestId =
       inbound && REQUEST_ID_PATTERN.test(inbound)
         ? inbound
         : crypto.randomUUID();
-    await next();
+    try {
+      await next();
+    } finally {
+      activeRequests--;
+      const statusGroup = `${Math.floor(c.res.status / 100)}xx`;
+      statusCounts[statusGroup] = (statusCounts[statusGroup] ?? 0) + 1;
+      statusCounts[String(c.res.status)] =
+        (statusCounts[String(c.res.status)] ?? 0) + 1;
+    }
     c.res.headers.set("x-request-id", requestId);
   });
   if (config.corsOrigin) {
@@ -171,6 +186,28 @@ export function createApp(
       asset: config.chain.symbol,
       price: `$${config.price}`,
     }),
+  );
+  // Kubernetes liveness probe alias
+  app.get("/livez", (c) => c.text("ok", 200, { "cache-control": "no-store" }));
+  // Internal metrics and diagnostic stats
+  app.get("/metrics", (c) =>
+    c.json(
+      {
+        uptime_seconds: Math.floor((Date.now() - startTime) / 1000),
+        total_requests: totalRequests,
+        active_requests: activeRequests,
+        status_counts: statusCounts,
+        network: config.chain.network,
+        asset: config.chain.symbol,
+        memory: {
+          rss: process.memoryUsage().rss,
+          heap_used: process.memoryUsage().heapUsed,
+          heap_total: process.memoryUsage().heapTotal,
+        },
+      },
+      200,
+      { "cache-control": "no-store" },
+    ),
   );
   // Readiness is stronger than liveness: the process is up and the facilitator
   // advertises the configured protocol and network; this does not prove settlement.
