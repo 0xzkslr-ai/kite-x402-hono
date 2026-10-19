@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased
+
+- Preserve configured CORS headers on settlement refusals and facilitator errors
+  so allowed browser clients can inspect failure responses and payment receipts.
+
 ## 0.3.2
 
 - Forward conditional 304 responses through settlement while refusing other 3xx statuses.

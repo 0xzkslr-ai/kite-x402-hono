@@ -70,18 +70,21 @@ export function createApp(
       ],
       maxAge: 86400,
     });
-    app.use("*", (c, next) => {
+    app.use("*", async (c, next) => {
       // Only browser preflight bypasses the paid OPTIONS route.
-      if (
-        c.req.method === "OPTIONS" &&
-        !(
+      if (c.req.method === "OPTIONS") {
+        if (
           c.req.header("origin") &&
           c.req.header("access-control-request-method")
-        )
-      ) {
+        ) {
+          return corsMiddleware(c, next);
+        }
         return next();
       }
-      return corsMiddleware(c, next);
+      // Settlement errors can replace the response in the payment middleware.
+      // Apply CORS to the final response so browsers can read those failures too.
+      await next();
+      return corsMiddleware(c, async () => {});
     });
   }
   const facilitatorTimeoutMs = config.facilitatorTimeoutMs ?? 90000;

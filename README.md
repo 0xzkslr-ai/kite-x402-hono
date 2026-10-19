@@ -209,6 +209,8 @@ to enable web browsers, dApps, and AI agent frontends to make paid cross-origin 
 - `402 Payment Required` challenge responses and successful responses expose
   `Payment-Required`, `Payment-Response`, `Retry-After`, `X-Request-ID`, allowing browser `fetch`
   clients to inspect payment requirements and payment settlement tokens.
+  Settlement refusals and facilitator errors also retain these CORS headers, so
+  allowed browser clients can read the actual failure response and any failure receipt.
 - When `CORS_ORIGIN` is unset (the default), CORS middleware is omitted entirely
   with zero overhead and backwards-compatible behavior.
 
