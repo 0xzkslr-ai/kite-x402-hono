@@ -15,6 +15,8 @@ export interface Config {
   maxConcurrentRequests?: number;
   facilitatorTimeoutMs?: number;
   corsOrigin?: string | undefined;
+  rateLimitRps?: number;
+  rateLimitBurst?: number;
 }
 
 export function parseCorsOrigin(value: string): string {
@@ -140,6 +142,12 @@ export function loadConfig(
     ),
     corsOrigin: get("CORS_ORIGIN")
       ? parseCorsOrigin(get("CORS_ORIGIN"))
+      : undefined,
+    rateLimitRps: get("RATE_LIMIT_RPS")
+      ? integer(get("RATE_LIMIT_RPS"), "RATE_LIMIT_RPS", 100000)
+      : undefined,
+    rateLimitBurst: get("RATE_LIMIT_BURST")
+      ? integer(get("RATE_LIMIT_BURST"), "RATE_LIMIT_BURST", 100000)
       : undefined,
   };
 }
