@@ -11,6 +11,9 @@
 - Expose `X-Response-Time` in CORS headers (`Access-Control-Expose-Headers`) for web dApps and browser clients.
 - Add unit tests verifying `/livez`, timing header formatting, and CORS exposure.
 
+- Preserve configured CORS headers on settlement refusals and facilitator errors
+  so allowed browser clients can inspect failure responses and payment receipts.
+
 ## 0.3.2
 
 - Forward conditional 304 responses through settlement while refusing other 3xx statuses.

@@ -160,6 +160,7 @@ Bun.serve({ port: config.port, fetch: app.fetch });
 
 - 预检 `OPTIONS` 请求返回 `204 No Content` 及对应的 `Access-Control-Allow-*` 头部，无需先触发付费。
 - 付费挑战 `402 Payment Required` 与正常响应均通过 `Access-Control-Expose-Headers` 暴露 `Payment-Required`、`Payment-Response`、`Retry-After`，方便浏览器端 `fetch` 读取付款挑战及结算回执。
+- 结算拒绝和 facilitator 错误响应也保留 CORS 头部，使允许的浏览器客户端可以读取实际错误及失败回执（如有）。
 - 未配置 `CORS_ORIGIN` 时（默认），不注册 CORS 中间件，保持零额外开销与向下兼容。
 
 ### 优雅停机 (Graceful Shutdown)（0.3.3 新增）

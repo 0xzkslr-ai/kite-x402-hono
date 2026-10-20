@@ -95,6 +95,54 @@ describe("CORS Support", () => {
     expect(events).toEqual(["verify", "upstream", "settle"]);
   });
 
+  test.each([
+    ["*", "*"],
+    ["https://app.example", "https://app.example"],
+    ["https://other.example", null],
+    ["", null],
+  ] as const)(
+    "settlement refusal preserves CORS policy for origin config '%s'",
+    async (corsOrigin, allowedOrigin) => {
+      const { app, events } = harness({
+        env: { CORS_ORIGIN: corsOrigin },
+        settles: false,
+      });
+      const response = await app.request("/v1/echo", {
+        headers: {
+          origin: "https://app.example",
+          "payment-signature": await signature(app),
+          "x-request-id": "settlement-refusal",
+        },
+      });
+
+      expect(response.status).toBe(402);
+      expect(events).toEqual(["verify", "upstream", "settle"]);
+      expect(await response.text()).not.toContain("protected response");
+      expect(response.headers.get("cache-control")).toContain("no-store");
+      expect(response.headers.get("x-request-id")).toBe("settlement-refusal");
+      const receipt = JSON.parse(
+        Buffer.from(
+          response.headers.get("payment-response")!,
+          "base64",
+        ).toString(),
+      );
+      expect(receipt.success).toBe(false);
+      expect(response.headers.get("access-control-allow-origin")).toBe(
+        allowedOrigin,
+      );
+      const exposed = response.headers.get("access-control-expose-headers");
+      if (corsOrigin) {
+        expect(exposed?.toLowerCase()).toContain("payment-response");
+        expect(exposed?.toLowerCase()).toContain("x-request-id");
+      } else {
+        expect(exposed).toBeNull();
+      }
+      if (corsOrigin && corsOrigin !== "*") {
+        expect(response.headers.get("vary")).toContain("Origin");
+      }
+    },
+  );
+
   test("when CORS_ORIGIN is unset, no CORS headers are emitted", async () => {
     const { app } = harness();
 

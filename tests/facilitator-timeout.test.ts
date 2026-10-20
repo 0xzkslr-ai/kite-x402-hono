@@ -46,6 +46,7 @@ for (const stage of ["supported", "verify", "settle"] as const) {
           FACILITATOR_URL: `${facilitator.url.origin}/v2`,
           FACILITATOR_TIMEOUT_MS: "100",
           MAX_CONCURRENT_REQUESTS: "1",
+          CORS_ORIGIN: "https://app.example",
         }),
         {
           fetchUpstream: async () => {
@@ -59,10 +60,19 @@ for (const stage of ["supported", "verify", "settle"] as const) {
           stage === "supported"
             ? {}
             : { "payment-signature": await signature(app) };
-        const response = await app.request("/v1/echo", { headers });
+        const response = await app.request("/v1/echo", {
+          headers: { ...headers, origin: "https://app.example" },
+        });
         expect(response.status).toBe(stage === "supported" ? 503 : 502);
         expect(await response.text()).not.toContain("secretResource");
         expect(response.headers.get("payment-response")).toBeNull();
+        expect(response.headers.get("access-control-allow-origin")).toBe(
+          "https://app.example",
+        );
+        expect(
+          response.headers.get("access-control-expose-headers")?.toLowerCase(),
+        ).toContain("payment-response");
+        expect(response.headers.get("vary")).toContain("Origin");
         expect(upstreamCalls).toBe(stage === "settle" ? 1 : 0);
         expect(calls.filter((x) => x === stage)).toHaveLength(1);
         if (stage === "verify") expect(calls).not.toContain("settle");
