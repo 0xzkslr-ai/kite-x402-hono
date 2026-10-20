@@ -24,7 +24,7 @@ if (process.argv.includes("--help")) {
       if (isShuttingDown) return;
       isShuttingDown = true;
       console.log(`Received ${signal}, initiating graceful shutdown...`);
-      server.stop(false);
+      const stopped = server.stop(false);
       const timeoutMs = config.shutdownTimeoutMs ?? 10000;
       const timer = setTimeout(() => {
         console.warn(
@@ -34,6 +34,7 @@ if (process.argv.includes("--help")) {
         process.exit(0);
       }, timeoutMs);
       timer.unref?.();
+      void stopped.finally(() => clearTimeout(timer));
     };
     process.once("SIGINT", () => shutdown("SIGINT"));
     process.once("SIGTERM", () => shutdown("SIGTERM"));

@@ -69,3 +69,16 @@ describe("GET /stats operational metrics", () => {
     expect(stats.traffic.too_large).toBe(1);
   });
 });
+
+test("settlement refusal never increments successful traffic", async () => {
+  const { app } = harness({ settles: false });
+  const sig = await signature(app);
+  const response = await app.request("/v1/echo", {
+    headers: { "payment-signature": sig },
+  });
+  expect(response.status).toBe(402);
+  const stats = (await (await app.request("/stats")).json()) as {
+    traffic: { successful: number };
+  };
+  expect(stats.traffic.successful).toBe(0);
+});

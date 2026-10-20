@@ -98,9 +98,9 @@ injection for tests. Never use a simulated facilitator in a production service.
 | `CORS_ORIGIN`             | Unset                                | Allowed origin for CORS (`*` or HTTP(S) origin); enables browser dApp clients   |
 | `SHUTDOWN_TIMEOUT_MS`     | `10000`                              | Timeout in ms to drain active in-flight requests on SIGINT/SIGTERM (1 to 60000) |
 
-| `MAINTENANCE_MODE`        | `false`                              | Drain switch (`true` or `1`); `/readyz` & `/v1/*` return 503 with Retry-After   |
-| `LOG_FORMAT`              | `json`                               | Access log output format (`json` or `dev`)                                      |
-| `LOG_ENABLED`             | `true`                               | Enable structured request logging (`true` or `false`)                           |
+| `MAINTENANCE_MODE` | `false` | Drain switch (`true` or `1`); `/readyz` & `/v1/*` return 503 with Retry-After |
+| `LOG_FORMAT` | `json` | Access log output format (`json` or `dev`) |
+| `LOG_ENABLED` | `true` | Enable structured request logging (`true` or `false`) |
 
 HTTPS is required for upstream/facilitator URLs except localhost development.
 The example `.env` explicitly selects testnet; the compatibility default remains
@@ -279,3 +279,11 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for local checks and
 [docs/week-1.md](docs/week-1.md) for the bounty scope and evidence checklist.
 AI tools assisted development; BrK reviews and owns the contribution. Original
 wrapper/configuration/test work is distinguished from upstream SDK functionality.
+
+### Operational endpoint scope
+
+`/stats` and `/metrics` are public, process-local diagnostics and reset on restart. Restrict them at your ingress if traffic or memory data should be private. `successful` counts final 2xx responses after payment middleware completes.
+
+`/.well-known/x402` is this wrapper's discovery format, not an official x402 discovery schema. Payment challenges remain authoritative. `MAINTENANCE_MODE` is read at startup; restart to change it.
+
+Access logs omit query strings, bodies and payment signatures. `clientIp` is an unverified forwarded-header claim; do not use it for access decisions. JSON is recommended for production.

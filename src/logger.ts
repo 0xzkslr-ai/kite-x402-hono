@@ -6,7 +6,6 @@ export interface LoggerConfig {
   format?: LogFormat | undefined;
   enabled?: boolean | undefined;
   skipHealthz?: boolean | undefined;
-  redactHeaders?: string[] | undefined;
 }
 
 export interface AccessLogEntry {
@@ -21,6 +20,7 @@ export interface AccessLogEntry {
   userAgent: string | null;
 }
 
+/** Unverified forwarded-header claim; never use for access control. */
 export function extractClientIp(headers: Headers): string | null {
   const forwarded = headers.get("x-forwarded-for");
   if (forwarded) {
@@ -42,24 +42,33 @@ export function extractClientIp(headers: Headers): string | null {
   return null;
 }
 
-export function formatLogEntry(entry: AccessLogEntry, format: LogFormat): string {
+export function formatLogEntry(
+  entry: AccessLogEntry,
+  format: LogFormat,
+): string {
   if (format === "json") {
     return JSON.stringify(entry);
   }
 
-  const statusStr = entry.status >= 500
-    ? `\x1b[31m${entry.status}\x1b[0m`
-    : entry.status >= 400
-      ? `\x1b[33m${entry.status}\x1b[0m`
-      : `\x1b[32m${entry.status}\x1b[0m`;
+  const statusStr =
+    entry.status >= 500
+      ? `\x1b[31m${entry.status}\x1b[0m`
+      : entry.status >= 400
+        ? `\x1b[33m${entry.status}\x1b[0m`
+        : `\x1b[32m${entry.status}\x1b[0m`;
 
-  const ipStr = entry.clientIp ? ` (${entry.clientIp})` : "";
-  return `[${entry.timestamp}] ${statusStr} ${entry.method} ${entry.path} - ${entry.durationMs.toFixed(2)}ms${ipStr} [${entry.requestId}]`;
+  const clean = (value: string) =>
+    Array.from(value, (ch) => {
+      const code = ch.charCodeAt(0);
+      return code < 32 || (code >= 127 && code <= 159) ? "?" : ch;
+    }).join("");
+  const ipStr = entry.clientIp ? ` (${clean(entry.clientIp)})` : "";
+  return `[${clean(entry.timestamp)}] ${statusStr} ${clean(entry.method)} ${clean(entry.path)} - ${entry.durationMs.toFixed(2)}ms${ipStr} [${clean(entry.requestId)}]`;
 }
 
 export function createAccessLogger(
   config: LoggerConfig = {},
-  sink: (line: string) => void = console.log
+  sink: (line: string) => void = console.log,
 ): MiddlewareHandler {
   const enabled = config.enabled ?? true;
   const format = config.format ?? "json";
@@ -80,9 +89,10 @@ export function createAccessLogger(
     const durationMs = Math.round((performance.now() - start) * 100) / 100;
 
     const rawContentLength = c.res.headers.get("content-length");
-    const contentLength = rawContentLength && /^\d+$/.test(rawContentLength)
-      ? Number(rawContentLength)
-      : null;
+    const contentLength =
+      rawContentLength && /^\d+$/.test(rawContentLength)
+        ? Number(rawContentLength)
+        : null;
 
     const entry: AccessLogEntry = {
       timestamp: new Date().toISOString(),
