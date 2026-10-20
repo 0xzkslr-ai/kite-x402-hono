@@ -29,10 +29,11 @@ bun run example
 bun run start
 curl -i http://localhost:8080/healthz
 curl -i http://localhost:8080/readyz
+curl -i http://localhost:8080/.well-known/x402
 curl -i 'http://localhost:8080/v1/echo?message=hello'
 ```
 
-`/healthz` 返回 200，且不会访问 facilitator。`/readyz` 会实际调用
+`/healthz` 返回 200，且不会访问 facilitator。`/.well-known/x402` 暴露免付费的协议与定价元数据（Kite 网络、代币合约与精度、原子价格与收款地址），供自主 AI Agent 自动发现。`/readyz` 会实际调用
 facilitator 的 `/supported` 接口，只有当前配置的 Kite 网络、x402 v2 和 exact 模式均被支持时才返回
 200；这不保证上游就绪或实际结算成功。`/v1/echo` 在 facilitator 可访问并支持
 所选网络时，未付款请求会返回带有 x402 v2 `PAYMENT-REQUIRED` 的 402。如果 facilitator

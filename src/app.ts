@@ -196,6 +196,36 @@ export function createApp(
       { "cache-control": "no-store" },
     ),
   );
+
+  // Machine-readable capability and pricing discovery for autonomous agents
+  app.get("/.well-known/x402", (c) => {
+    const priceInfo = parsePrice(config.price, config.chain);
+    return c.json({
+      x402Version: 2,
+      scheme: "exact",
+      network: config.chain.network,
+      asset: {
+        address: config.chain.asset,
+        symbol: config.chain.symbol,
+        decimals: config.chain.decimals,
+        name: config.chain.name,
+        version: config.chain.version,
+      },
+      pricing: {
+        usd: `$${config.price}`,
+        atomicAmount: priceInfo.amount,
+        payTo: config.payTo,
+      },
+      facilitator: config.facilitatorUrl,
+      description: config.description,
+      limits: {
+        maxBodyBytes: config.maxBodyBytes,
+        upstreamTimeoutMs: config.timeoutMs,
+        maxConcurrentRequests: config.maxConcurrentRequests ?? 64,
+        facilitatorTimeoutMs: config.facilitatorTimeoutMs ?? 90000,
+      },
+    });
+  });
   // Readiness is stronger than liveness: the process is up and the facilitator
   // advertises the configured protocol and network; this does not prove settlement.
   app.get("/readyz", async (c) => {
