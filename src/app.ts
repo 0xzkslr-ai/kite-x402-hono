@@ -13,10 +13,15 @@ import { ExactEvmScheme } from "@x402/evm/exact/server";
 import { loadConfig, parseCorsOrigin, type Config } from "./config.js";
 import { parsePrice } from "./networks.js";
 import { proxy, REQUEST_ID_PATTERN, type FetchUpstream } from "./proxy.js";
+import {
+  createRateLimiterMiddleware,
+  type RateLimiterOptions,
+} from "./rate-limiter.js";
 
 export interface AppOptions {
   facilitator?: FacilitatorClient;
   fetchUpstream?: FetchUpstream;
+  rateLimiter?: RateLimiterOptions;
 }
 
 export function createApp(
@@ -83,6 +88,9 @@ export function createApp(
       }
       return corsMiddleware(c, next);
     });
+  }
+  if (options.rateLimiter) {
+    app.use("*", createRateLimiterMiddleware(options.rateLimiter));
   }
   const facilitatorTimeoutMs = config.facilitatorTimeoutMs ?? 90000;
   if (
