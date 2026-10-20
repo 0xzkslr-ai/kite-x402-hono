@@ -158,6 +158,9 @@ export function createApp(
       return corsMiddleware(c, async () => {});
     });
   }
+  if (options.rateLimiter) {
+    app.use("*", createRateLimiterMiddleware(options.rateLimiter));
+  }
   const facilitatorTimeoutMs = config.facilitatorTimeoutMs ?? 90000;
   if (
     !Number.isInteger(facilitatorTimeoutMs) ||
