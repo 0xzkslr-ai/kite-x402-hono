@@ -78,6 +78,37 @@ export function createApp(
     c.res.headers.set("x-request-id", requestId);
     c.res.headers.set("x-response-time", `${durationMs.toFixed(2)}ms`);
   });
+  if (config.rateLimitRps) {
+    const rateLimiter = new TokenBucketRateLimiter({
+      rps: config.rateLimitRps,
+      burst: config.rateLimitBurst,
+    });
+    app.use("*", async (c, next) => {
+      if (c.req.method === "OPTIONS" || c.req.path === "/healthz") {
+        return next();
+      }
+
+      const clientIp =
+        c.req.header("x-forwarded-for")?.split(",")[0]?.trim() ||
+        c.req.header("cf-connecting-ip") ||
+        "global";
+
+      const decision = rateLimiter.consume(clientIp);
+      if (!decision.allowed) {
+        c.header("Retry-After", String(decision.resetSeconds));
+        c.header("X-RateLimit-Limit", String(decision.limit));
+        c.header("X-RateLimit-Remaining", "0");
+        c.header("X-RateLimit-Reset", String(decision.resetSeconds));
+        c.header("Cache-Control", "no-store");
+        return c.json({ error: "rate_limit_exceeded" }, 429);
+      }
+
+      await next();
+      c.res.headers.set("X-RateLimit-Limit", String(decision.limit));
+      c.res.headers.set("X-RateLimit-Remaining", String(decision.remaining));
+      c.res.headers.set("X-RateLimit-Reset", String(decision.resetSeconds));
+    });
+  }
   if (config.corsOrigin) {
     const corsMiddleware = cors({
       origin: parseCorsOrigin(config.corsOrigin),
