@@ -8,6 +8,7 @@ import {
   createApp,
   loadConfig,
   KITE_NETWORKS,
+  PaymentNonceReplayGuard,
   type Config,
 } from "../src/index.js";
 import type { FetchUpstream } from "../src/proxy.js";
