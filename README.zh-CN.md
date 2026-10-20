@@ -29,11 +29,8 @@ bun run example
 bun run start
 curl -i http://localhost:8080/healthz
 curl -i http://localhost:8080/readyz
-<<<<<<< HEAD
 curl -i http://localhost:8080/.well-known/x402
-=======
 curl -i http://localhost:8080/stats
->>>>>>> origin/pr/6
 curl -i 'http://localhost:8080/v1/echo?message=hello'
 ```
 

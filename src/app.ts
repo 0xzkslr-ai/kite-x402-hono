@@ -29,6 +29,10 @@ export function createApp(
   // Attach standard security headers to protect against MIME-sniffing,
   // clickjacking, and XSS across all routes.
   app.use("*", secureHeaders());
+  const startTime = Date.now();
+  let totalRequests = 0;
+  let activeRequests = 0;
+  const statusCounts: Record<string, number> = {};
 
   // Label every response — paid answers, 402 challenges, guard-rail rejections
   // and errors alike — with a request ID the caller can quote back in issues
@@ -39,12 +43,22 @@ export function createApp(
   // because x-request-id is not on the proxy's blocked list.
   app.use("*", async (c, next) => {
     const start = performance.now();
+    totalRequests++;
+    activeRequests++;
     const inbound = c.req.header("x-request-id");
     const requestId =
       inbound && REQUEST_ID_PATTERN.test(inbound)
         ? inbound
         : crypto.randomUUID();
-    await next();
+    try {
+      await next();
+    } finally {
+      activeRequests--;
+      const statusGroup = `${Math.floor(c.res.status / 100)}xx`;
+      statusCounts[statusGroup] = (statusCounts[statusGroup] ?? 0) + 1;
+      statusCounts[String(c.res.status)] =
+        (statusCounts[String(c.res.status)] ?? 0) + 1;
+    }
     const durationMs = performance.now() - start;
     c.res.headers.set("x-request-id", requestId);
     c.res.headers.set("x-response-time", `${durationMs.toFixed(2)}ms`);
@@ -207,6 +221,26 @@ export function createApp(
       { "cache-control": "no-store" },
     ),
   );
+  // Public runtime diagnostics
+  app.get("/metrics", (c) =>
+    c.json(
+      {
+        uptime_seconds: Math.floor((Date.now() - startTime) / 1000),
+        total_requests: totalRequests,
+        active_requests: activeRequests,
+        status_counts: statusCounts,
+        network: config.chain.network,
+        asset: config.chain.symbol,
+        memory: {
+          rss: process.memoryUsage().rss,
+          heap_used: process.memoryUsage().heapUsed,
+          heap_total: process.memoryUsage().heapTotal,
+        },
+      },
+      200,
+      { "cache-control": "no-store" },
+    ),
+  );
 
   // Machine-readable capability and pricing discovery for autonomous agents
   app.get("/.well-known/x402", (c) => {
@@ -338,6 +372,7 @@ export function createApp(
     if (status === 402) {
       metrics.challenges++;
     }
+    if (status >= 200 && status < 300) metrics.successful++;
     return result;
   });
   app.all("/v1/*", async (c) => {
@@ -345,20 +380,12 @@ export function createApp(
       c.req.raw,
       config,
       options.fetchUpstream ?? ((request) => fetch(request)),
-<<<<<<< HEAD
-    ),
-  );
+    );
+    return response;
+  });
   app.notFound((c) =>
     c.json({ error: "not_found" }, 404, { "cache-control": "no-store" }),
   );
-=======
-    );
-    if (response.status >= 200 && response.status < 300) {
-      metrics.successful++;
-    }
-    return response;
-  });
->>>>>>> origin/pr/6
   app.onError(() =>
     Response.json(
       { error: "internal_error" },
