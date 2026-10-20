@@ -44,7 +44,7 @@ export class AdaptiveRateLimiter {
     this.capacity = options.capacity;
     this.refillRatePerSec = options.refillRatePerSec;
     this.cleanupIntervalMs = options.cleanupIntervalMs ?? 300_000; // 5 min
-    this.lastCleanupMs = Date.now();
+    this.lastCleanupMs = 0;
   }
 
   /**
