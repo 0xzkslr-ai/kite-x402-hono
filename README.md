@@ -208,7 +208,7 @@ to enable web browsers, dApps, and AI agent frontends to make paid cross-origin 
   other OPTIONS requests still require payment. Upstream CORS headers are stripped
   so the wrapper controls origin policy. CORS is not server-side authentication.
 - `402 Payment Required` challenge responses and successful responses expose
-  `Payment-Required`, `Payment-Response`, `Retry-After`, `X-Request-ID`, allowing browser `fetch`
+  `Payment-Required`, `Payment-Response`, `Retry-After`, `X-Request-ID`, `X-Response-Time`, allowing browser `fetch`
   clients to inspect payment requirements and payment settlement tokens.
 - When `CORS_ORIGIN` is unset (the default), CORS middleware is omitted entirely
   with zero overhead and backwards-compatible behavior.
@@ -220,6 +220,11 @@ the CLI server immediately stops accepting new connections via `server.stop(fals
 allowing in-flight paid requests and settlement handshakes to drain cleanly before
 the process exits. If in-flight requests do not complete within `SHUTDOWN_TIMEOUT_MS`
 (default 10000ms), connections are forcibly closed to prevent hanging deployments.
+
+### Liveness probe and timing instrumentation (added in 0.3.3)
+
+- `GET /livez`: Standard Kubernetes liveness probe that immediately returns `200 {"ok":true,"status":"alive"}` with `Cache-Control: no-store`. It requires zero network I/O and runs completely independently of facilitator availability, preventing container restart loops during transient facilitator downtime.
+- `X-Response-Time`: Measures total end-to-end request duration through the wrapper (formatted as `${ms}ms`), allowing cloud monitoring tools and browser dApps (via CORS `Access-Control-Expose-Headers`) to distinguish wrapper processing latency from upstream execution and on-chain payment settlement.
 
 ### Commands
 

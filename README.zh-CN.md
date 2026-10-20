@@ -166,6 +166,11 @@ Bun.serve({ port: config.port, fetch: app.fetch });
 
 在接收到 `SIGINT` 或 `SIGTERM` 信号时（如容器重启、停止或部署滚动更新），CLI 服务器会通过 `server.stop(false)` 立即停止接收新的入站连接，并等待当前正在执行的付费请求、上游代理及结算流程平滑完成。如果正在进行的请求在 `SHUTDOWN_TIMEOUT_MS`（默认 10000 毫秒）内仍未完成，服务将强制关闭未完成连接并退出，防止挂起部署。
 
+### 存活探针与耗时追踪 (Liveness Probe & Response Timing)（0.3.3 新增）
+
+- `GET /livez`: 标准 Kubernetes 存活探针，立即返回 `200 {"ok":true,"status":"alive"}` 及 `Cache-Control: no-store`。该探针无需任何网络 I/O，完全独立于 facilitator 可用性，可有效防止容器编排平台在 facilitator 瞬时波动时误杀容器。
+- `X-Response-Time`: 在所有入站响应中添加毫秒级处理耗时头部（如 `12.45ms`），并通过 CORS `Access-Control-Expose-Headers` 暴露给前端 dApp 与监控系统，便于准确区分网络传输、上游响应与链上结算各阶段延迟。
+
 ### 检查命令
 
 ```sh

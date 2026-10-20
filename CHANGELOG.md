@@ -6,6 +6,11 @@
 - Add configuration validation and unit tests for `SHUTDOWN_TIMEOUT_MS` (range 1–60000 ms, default 10000 ms).
 - Update documentation and environment example with graceful shutdown details.
 
+- Add standard Kubernetes `GET /livez` liveness probe endpoint returning `200 {"ok":true,"status":"alive"}` with `Cache-Control: no-store` independent of external network or facilitator status.
+- Add `X-Response-Time` performance timing header across all responses measuring wrapper execution latency.
+- Expose `X-Response-Time` in CORS headers (`Access-Control-Expose-Headers`) for web dApps and browser clients.
+- Add unit tests verifying `/livez`, timing header formatting, and CORS exposure.
+
 ## 0.3.2
 
 - Forward conditional 304 responses through settlement while refusing other 3xx statuses.
