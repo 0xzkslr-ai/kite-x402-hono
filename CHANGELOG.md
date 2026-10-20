@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.3.3
 
 - Implement graceful CLI shutdown on `SIGINT`/`SIGTERM` with active request draining (`server.stop(false)`) and configurable `SHUTDOWN_TIMEOUT_MS`.
 - Add configuration validation and unit tests for `SHUTDOWN_TIMEOUT_MS` (range 1–60000 ms, default 10000 ms).
