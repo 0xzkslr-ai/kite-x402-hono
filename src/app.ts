@@ -114,10 +114,19 @@ export function createApp(
     );
   }
   let active = 0;
+  const startedAt = Date.now();
+  const metrics = {
+    total: 0,
+    successful: 0,
+    challenges: 0,
+    busy: 0,
+    tooLarge: 0,
+  };
   // Reject a body that is already known to exceed the configured limit before
   // contacting the facilitator. Chunked or incorrectly declared bodies remain
   // protected by proxy's bounded stream reader.
   app.use("/v1/*", async (c, next) => {
+    metrics.total++;
     if (!["GET", "HEAD"].includes(c.req.method)) {
       const declaredLength = c.req.header("content-length");
       if (
@@ -125,6 +134,7 @@ export function createApp(
         /^\d+$/.test(declaredLength) &&
         BigInt(declaredLength) > BigInt(config.maxBodyBytes)
       ) {
+        metrics.tooLarge++;
         c.header("Cache-Control", "no-store");
         return c.json({ error: "request_too_large" }, 413);
       }
@@ -135,6 +145,7 @@ export function createApp(
   // Never queue payment-bearing requests or retain their signatures.
   app.use("/v1/*", async (c, next) => {
     if (active >= capacity) {
+      metrics.busy++;
       c.header("Retry-After", "1");
       c.header("Cache-Control", "no-store");
       return c.json({ error: "service_busy" }, 503);
@@ -270,6 +281,33 @@ export function createApp(
       { "cache-control": "no-store" },
     );
   });
+  // Stats returns operational metrics: uptime, capacity utilization, and request outcomes.
+  app.get("/stats", (c) =>
+    c.json(
+      {
+        ok: true,
+        uptime_seconds: Math.floor((Date.now() - startedAt) / 1000),
+        capacity: {
+          limit: capacity,
+          active,
+        },
+        traffic: {
+          total: metrics.total,
+          successful: metrics.successful,
+          challenges: metrics.challenges,
+          busy: metrics.busy,
+          too_large: metrics.tooLarge,
+        },
+        network: {
+          chain: config.chain.network,
+          asset: config.chain.symbol,
+          price: `$${config.price}`,
+        },
+      },
+      200,
+      { "cache-control": "no-store" },
+    ),
+  );
   app.use("/v1/*", async (c, next) => {
     c.header("cache-control", "no-store");
     if (config.maintenanceMode) {
@@ -294,18 +332,33 @@ export function createApp(
     } catch {
       return c.json({ error: "facilitator_unavailable" }, 503);
     }
-    return payments(c, next);
+    const result = await payments(c, next);
+    const status =
+      (result instanceof Response ? result.status : undefined) ?? c.res?.status;
+    if (status === 402) {
+      metrics.challenges++;
+    }
+    return result;
   });
-  app.all("/v1/*", (c) =>
-    proxy(
+  app.all("/v1/*", async (c) => {
+    const response = await proxy(
       c.req.raw,
       config,
       options.fetchUpstream ?? ((request) => fetch(request)),
+<<<<<<< HEAD
     ),
   );
   app.notFound((c) =>
     c.json({ error: "not_found" }, 404, { "cache-control": "no-store" }),
   );
+=======
+    );
+    if (response.status >= 200 && response.status < 300) {
+      metrics.successful++;
+    }
+    return response;
+  });
+>>>>>>> origin/pr/6
   app.onError(() =>
     Response.json(
       { error: "internal_error" },

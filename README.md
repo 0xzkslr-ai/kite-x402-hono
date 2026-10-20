@@ -31,7 +31,11 @@ In another terminal in the same directory:
 bun run start
 curl -i http://localhost:8080/healthz
 curl -i http://localhost:8080/readyz
+<<<<<<< HEAD
 curl -i http://localhost:8080/.well-known/x402
+=======
+curl -i http://localhost:8080/stats
+>>>>>>> origin/pr/6
 curl -i 'http://localhost:8080/v1/echo?message=hello'
 ```
 
@@ -41,7 +45,10 @@ atomic price, and receiver wallet) for autonomous AI agents. `/readyz` actually
 calls the facilitator's `/supported` endpoint and returns 200 only when the
 configured Kite network is offered with x402 v2 and the exact scheme, so orchestrators can distinguish
 "process up" from "supported payment protocol". This does not prove that
-the upstream is ready or that a payment will settle. `/v1/echo` returns
+the upstream is ready or that a payment will settle. `/stats` returns
+operational telemetry (uptime, active capacity utilization, total received
+requests, challenge counts, and success counts) with `Cache-Control: no-store`
+without touching the facilitator. `/v1/echo` returns
 402 with an x402 v2 `PAYMENT-REQUIRED` header when the configured facilitator
 is reachable and supports the selected network. A facilitator outage returns
 503 instead; the upstream is never called without verified payment.
