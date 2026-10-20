@@ -150,6 +150,11 @@ Compatibility notes:
 - The CLI disables Bun's short idle timeout so it does not disconnect a client
   during settlement. SDK facilitator calls default to a configurable 90-second timeout;
   deploy behind a reverse proxy with suitable request deadlines and rate limits.
+- Every response carries standard HTTP security headers (`X-Content-Type-Options: nosniff`,
+  `X-Frame-Options: SAMEORIGIN`, `X-XSS-Protection: 0`, `Referrer-Policy: no-referrer`) to
+  protect against MIME-sniffing, clickjacking, and XSS.
+- Unmatched or unknown routes return structured JSON `404 {"error":"not_found"}` with
+  `Cache-Control: no-store` rather than unformatted plaintext error responses.
 
 ## Verification
 

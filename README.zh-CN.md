@@ -171,6 +171,11 @@ Bun.serve({ port: config.port, fetch: app.fetch });
 - `GET /livez`: 标准 Kubernetes 存活探针，立即返回 `200 {"ok":true,"status":"alive"}` 及 `Cache-Control: no-store`。该探针无需任何网络 I/O，完全独立于 facilitator 可用性，可有效防止容器编排平台在 facilitator 瞬时波动时误杀容器。
 - `X-Response-Time`: 在所有入站响应中添加毫秒级处理耗时头部（如 `12.45ms`），并通过 CORS `Access-Control-Expose-Headers` 暴露给前端 dApp 与监控系统，便于准确区分网络传输、上游响应与链上结算各阶段延迟。
 
+### 安全响应头与结构化 404（0.3.3 新增）
+
+- 所有响应均自动携带基础 HTTP 安全头部（`X-Content-Type-Options: nosniff`、`X-Frame-Options: SAMEORIGIN`、`X-XSS-Protection: 0`、`Referrer-Policy: no-referrer`），防御 MIME 嗅探、点击劫持与跨站脚本威胁。
+- 未匹配路由统一返回结构化 JSON 响应 `404 {"error":"not_found"}`，并附加 `Cache-Control: no-store` 头部，取代默认纯文本报错。
+
 ### 检查命令
 
 ```sh

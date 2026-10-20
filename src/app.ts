@@ -1,5 +1,6 @@
 import { Hono } from "hono";
 import { cors } from "hono/cors";
+import { secureHeaders } from "hono/secure-headers";
 import {
   paymentMiddlewareFromHTTPServer,
   x402HTTPResourceServer,
@@ -24,6 +25,11 @@ export function createApp(
   options: AppOptions = {},
 ): Hono {
   const app = new Hono();
+
+  // Attach standard security headers to protect against MIME-sniffing,
+  // clickjacking, and XSS across all routes.
+  app.use("*", secureHeaders());
+
   // Label every response — paid answers, 402 challenges, guard-rail rejections
   // and errors alike — with a request ID the caller can quote back in issues
   // and correlate across agent, wrapper and upstream logs. A caller-supplied
@@ -245,6 +251,9 @@ export function createApp(
       config,
       options.fetchUpstream ?? ((request) => fetch(request)),
     ),
+  );
+  app.notFound((c) =>
+    c.json({ error: "not_found" }, 404, { "cache-control": "no-store" }),
   );
   app.onError(() =>
     Response.json(
