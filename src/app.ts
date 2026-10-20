@@ -128,6 +128,7 @@ export function createApp(
         "X-Payment",
         "X-Requested-With",
         "X-Request-ID",
+        "Idempotency-Key",
       ],
       exposeHeaders: [
         "Payment-Required",
