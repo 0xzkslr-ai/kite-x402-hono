@@ -9,13 +9,13 @@ export interface CachedResponse {
 }
 
 interface InFlightEntry {
-  state: 'in_flight';
+  state: "in_flight";
   startedAt: number;
   expiresAt: number;
 }
 
 interface CompletedEntry {
-  state: 'completed';
+  state: "completed";
   response: CachedResponse;
 }
 
@@ -24,16 +24,22 @@ type IdempotencyRecord = InFlightEntry | CompletedEntry;
 export interface IdempotencyCacheOptions {
   ttlMs?: number;
   maxKeys?: number;
+  maxBytes?: number;
 }
 
 export class IdempotencyCache {
   private records = new Map<string, IdempotencyRecord>();
   private defaultTtlMs: number;
   private maxKeys: number;
+  private maxBytes: number;
 
   constructor(options: IdempotencyCacheOptions = {}) {
     this.defaultTtlMs = options.ttlMs ?? 10 * 60 * 1000; // 10 minutes default
-    this.maxKeys = options.maxKeys ?? 10000;
+    this.maxKeys = options.maxKeys ?? 1000;
+    this.maxBytes = options.maxBytes ?? 32 * 1024 * 1024;
+    for (const n of [this.defaultTtlMs, this.maxKeys, this.maxBytes])
+      if (!Number.isSafeInteger(n) || n < 1)
+        throw new Error("Invalid cache limit");
   }
 
   public validateKey(key: string | null | undefined): boolean {
@@ -44,7 +50,7 @@ export class IdempotencyCache {
   public cleanExpired(now = Date.now()): void {
     for (const [key, record] of this.records.entries()) {
       const expiresAt =
-        record.state === 'in_flight'
+        record.state === "in_flight"
           ? record.expiresAt
           : record.response.expiresAt;
       if (now >= expiresAt) {
@@ -56,16 +62,19 @@ export class IdempotencyCache {
   public acquire(
     key: string,
     ttlMs = this.defaultTtlMs,
-    now = Date.now()
-  ): { status: 'acquired' } | { status: 'in_flight' } | { status: 'cached'; response: CachedResponse } {
+    now = Date.now(),
+  ):
+    | { status: "acquired" }
+    | { status: "in_flight" }
+    | { status: "cached"; response: CachedResponse } {
     this.cleanExpired(now);
 
     const existing = this.records.get(key);
     if (existing) {
-      if (existing.state === 'in_flight') {
-        return { status: 'in_flight' };
+      if (existing.state === "in_flight") {
+        return { status: "in_flight" };
       }
-      return { status: 'cached', response: existing.response };
+      return { status: "cached", response: existing.response };
     }
 
     if (this.records.size >= this.maxKeys) {
@@ -75,12 +84,12 @@ export class IdempotencyCache {
     }
 
     this.records.set(key, {
-      state: 'in_flight',
+      state: "in_flight",
       startedAt: now,
-      expiresAt: now + 30000, // 30s timeout for in-flight requests
+      expiresAt: now + Math.max(ttlMs, 600000), // 30s timeout for in-flight requests
     });
 
-    return { status: 'acquired' };
+    return { status: "acquired" };
   }
 
   public complete(
@@ -89,19 +98,38 @@ export class IdempotencyCache {
     headers: Headers,
     body: Uint8Array,
     ttlMs = this.defaultTtlMs,
-    now = Date.now()
+    now = Date.now(),
   ): void {
+    if (!this.records.has(key)) return;
+    const used = [...this.records.entries()].reduce(
+      (n, [k, r]) =>
+        n +
+        (k !== key && r.state === "completed" ? r.response.body.byteLength : 0),
+      0,
+    );
+    if (used + body.byteLength > this.maxBytes) {
+      this.records.delete(key);
+      return;
+    }
     const headerEntries: [string, string][] = [];
     headers.forEach((val, name) => {
       // Don't cache transfer-encoding, connection, or hop-by-hop headers
       const lower = name.toLowerCase();
-      if (!['connection', 'keep-alive', 'transfer-encoding', 'content-length'].includes(lower)) {
+      if (
+        [
+          "content-type",
+          "content-language",
+          "etag",
+          "last-modified",
+          "payment-response",
+        ].includes(lower)
+      ) {
         headerEntries.push([name, val]);
       }
     });
 
     this.records.set(key, {
-      state: 'completed',
+      state: "completed",
       response: {
         statusCode,
         headers: headerEntries,
@@ -114,7 +142,7 @@ export class IdempotencyCache {
 
   public release(key: string): void {
     const existing = this.records.get(key);
-    if (existing && existing.state === 'in_flight') {
+    if (existing && existing.state === "in_flight") {
       this.records.delete(key);
     }
   }

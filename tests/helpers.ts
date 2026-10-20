@@ -42,6 +42,8 @@ export function harness(
     settles?: boolean;
     upstream?: FetchUpstream;
     facilitator?: Partial<FacilitatorClient>;
+    idempotencyCache?: import("../src/idempotency.js").IdempotencyCache;
+    nonceGuard?: PaymentNonceReplayGuard;
     logSink?: (line: string) => void;
   } = {},
 ) {
@@ -73,6 +75,10 @@ export function harness(
   const app = createApp(config, {
     facilitator,
     logSink: options.logSink,
+    ...(options.idempotencyCache
+      ? { idempotencyCache: options.idempotencyCache }
+      : {}),
+    ...(options.nonceGuard ? { nonceGuard: options.nonceGuard } : {}),
     fetchUpstream: async (request) => {
       events.push("upstream");
       return options.upstream

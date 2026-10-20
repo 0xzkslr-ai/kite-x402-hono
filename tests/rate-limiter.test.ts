@@ -103,7 +103,7 @@ describe("Rate Limiter Middleware Integration", () => {
         capacity: 2,
         refillRatePerSec: 0.5,
         keyExtractor: (c) => c.req.header("x-client-ip") ?? "anon",
-      })
+      }),
     );
     app.get("/test", (c) => c.text("ok"));
 

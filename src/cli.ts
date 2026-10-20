@@ -12,7 +12,10 @@ if (process.argv.includes("--help")) {
     const app = createApp(config);
     const server = Bun.serve({
       port: config.port,
-      fetch: app.fetch,
+      fetch: (request, server) =>
+        app.fetch(request, {
+          clientIp: server.requestIP(request)?.address ?? null,
+        }),
       maxRequestBodySize: config.maxBodyBytes,
       idleTimeout: 0,
     });

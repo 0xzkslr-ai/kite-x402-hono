@@ -1,5 +1,8 @@
 import { expect, test } from "bun:test";
-import { IdempotencyCache, IDEMPOTENCY_KEY_PATTERN } from "../src/idempotency.js";
+import {
+  IdempotencyCache,
+  IDEMPOTENCY_KEY_PATTERN,
+} from "../src/idempotency.js";
 import { harness, signature } from "./helpers.js";
 
 test("IdempotencyCache validates key syntax correctly", () => {
@@ -22,7 +25,10 @@ test("IdempotencyCache acquire transitions from in-flight to completed", () => {
   const concurrent = cache.acquire(key);
   expect(concurrent.status).toBe("in_flight");
 
-  const headers = new Headers({ "content-type": "application/json", "x-custom": "hello" });
+  const headers = new Headers({
+    "content-type": "application/json",
+    "x-custom": "hello",
+  });
   const body = new TextEncoder().encode(JSON.stringify({ result: "done" }));
   cache.complete(key, 200, headers, body);
 
@@ -30,7 +36,9 @@ test("IdempotencyCache acquire transitions from in-flight to completed", () => {
   expect(third.status).toBe("cached");
   if (third.status === "cached") {
     expect(third.response.statusCode).toBe(200);
-    expect(new TextDecoder().decode(third.response.body)).toBe(JSON.stringify({ result: "done" }));
+    expect(new TextDecoder().decode(third.response.body)).toBe(
+      JSON.stringify({ result: "done" }),
+    );
   }
 });
 
@@ -48,7 +56,14 @@ test("IdempotencyCache cleans up expired records", () => {
   const cache = new IdempotencyCache();
   const now = 1000000;
   cache.acquire("expiring-key", 500, now);
-  cache.complete("expiring-key", 200, new Headers(), new Uint8Array(), 500, now);
+  cache.complete(
+    "expiring-key",
+    200,
+    new Headers(),
+    new Uint8Array(),
+    500,
+    now,
+  );
 
   expect(cache.size()).toBe(1);
   cache.cleanExpired(now + 600);

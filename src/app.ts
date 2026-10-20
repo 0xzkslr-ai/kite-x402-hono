@@ -1,4 +1,4 @@
-import { Hono } from "hono";
+import { Hono, type Context } from "hono";
 import { cors } from "hono/cors";
 import { secureHeaders } from "hono/secure-headers";
 import {
@@ -14,11 +14,24 @@ import { ExactEvmScheme } from "@x402/evm/exact/server";
 import { loadConfig, parseCorsOrigin, type Config } from "./config.js";
 import { parsePrice } from "./networks.js";
 import { proxy, REQUEST_ID_PATTERN, type FetchUpstream } from "./proxy.js";
+import {
+  TokenBucketRateLimiter,
+  createRateLimiterMiddleware,
+  type RateLimiterOptions,
+} from "./rate-limiter.js";
+import { evaluateIpFilter, extractClientIp } from "./firewall.js";
+import { IdempotencyCache } from "./idempotency.js";
+import { PaymentNonceReplayGuard } from "./nonce-guard.js";
+import { createPaymentProtection } from "./payment-protection.js";
 import { createAccessLogger } from "./logger.js";
 
 export interface AppOptions {
   facilitator?: FacilitatorClient;
   fetchUpstream?: FetchUpstream;
+  rateLimiter?: RateLimiterOptions;
+  idempotencyCache?: IdempotencyCache;
+  nonceGuard?: PaymentNonceReplayGuard;
+  clientIp?: (c: Context) => string | null;
   logSink?: ((line: string) => void) | undefined;
 }
 
@@ -78,37 +91,6 @@ export function createApp(
     c.res.headers.set("x-request-id", requestId);
     c.res.headers.set("x-response-time", `${durationMs.toFixed(2)}ms`);
   });
-  if (config.rateLimitRps) {
-    const rateLimiter = new TokenBucketRateLimiter({
-      rps: config.rateLimitRps,
-      burst: config.rateLimitBurst,
-    });
-    app.use("*", async (c, next) => {
-      if (c.req.method === "OPTIONS" || c.req.path === "/healthz") {
-        return next();
-      }
-
-      const clientIp =
-        c.req.header("x-forwarded-for")?.split(",")[0]?.trim() ||
-        c.req.header("cf-connecting-ip") ||
-        "global";
-
-      const decision = rateLimiter.consume(clientIp);
-      if (!decision.allowed) {
-        c.header("Retry-After", String(decision.resetSeconds));
-        c.header("X-RateLimit-Limit", String(decision.limit));
-        c.header("X-RateLimit-Remaining", "0");
-        c.header("X-RateLimit-Reset", String(decision.resetSeconds));
-        c.header("Cache-Control", "no-store");
-        return c.json({ error: "rate_limit_exceeded" }, 429);
-      }
-
-      await next();
-      c.res.headers.set("X-RateLimit-Limit", String(decision.limit));
-      c.res.headers.set("X-RateLimit-Remaining", String(decision.remaining));
-      c.res.headers.set("X-RateLimit-Reset", String(decision.resetSeconds));
-    });
-  }
   if (config.corsOrigin) {
     const corsMiddleware = cors({
       origin: parseCorsOrigin(config.corsOrigin),
@@ -138,6 +120,7 @@ export function createApp(
         "Retry-After",
         "X-Request-ID",
         "X-Response-Time",
+        "Idempotent-Replayed",
       ],
       maxAge: 86400,
     });
@@ -158,8 +141,59 @@ export function createApp(
       return corsMiddleware(c, async () => {});
     });
   }
+  const getClientIp =
+    options.clientIp ??
+    ((c: Context) =>
+      config.trustProxyHeaders !== false
+        ? extractClientIp(c.req.raw.headers)
+        : (c.env?.clientIp ?? null));
+  if (config.firewallAllowlist?.length || config.firewallBlocklist?.length) {
+    app.use("/v1/*", async (c, next) => {
+      const ip = getClientIp(c);
+      const verdict = evaluateIpFilter(ip, {
+        allowlist: config.firewallAllowlist,
+        blocklist: config.firewallBlocklist,
+      });
+      if (!verdict.allowed)
+        return c.json(
+          {
+            error: "forbidden_ip",
+            reason: verdict.reason,
+            ip: ip ?? "unknown",
+          },
+          403,
+          { "cache-control": "no-store" },
+        );
+      return next();
+    });
+  }
+  if (config.rateLimitRps) {
+    const rateLimiter = new TokenBucketRateLimiter(
+      config.rateLimitBurst === undefined
+        ? { rps: config.rateLimitRps }
+        : { rps: config.rateLimitRps, burst: config.rateLimitBurst },
+    );
+    app.use("/v1/*", async (c, next) => {
+      const clientIp = getClientIp(c) ?? "global";
+
+      const decision = rateLimiter.consume(clientIp);
+      if (!decision.allowed) {
+        c.header("Retry-After", String(decision.resetSeconds));
+        c.header("X-RateLimit-Limit", String(decision.limit));
+        c.header("X-RateLimit-Remaining", "0");
+        c.header("X-RateLimit-Reset", String(decision.resetSeconds));
+        c.header("Cache-Control", "no-store");
+        return c.json({ error: "rate_limit_exceeded" }, 429);
+      }
+
+      await next();
+      c.res.headers.set("X-RateLimit-Limit", String(decision.limit));
+      c.res.headers.set("X-RateLimit-Remaining", String(decision.remaining));
+      c.res.headers.set("X-RateLimit-Reset", String(decision.resetSeconds));
+    });
+  }
   if (options.rateLimiter) {
-    app.use("*", createRateLimiterMiddleware(options.rateLimiter));
+    app.use("/v1/*", createRateLimiterMiddleware(options.rateLimiter));
   }
   const facilitatorTimeoutMs = config.facilitatorTimeoutMs ?? 90000;
   if (
@@ -227,7 +261,8 @@ export function createApp(
       url: config.facilitatorUrl,
       timeoutMs: facilitatorTimeoutMs,
     });
-  const server = new x402ResourceServer(facilitator).register(
+  const protection = createPaymentProtection(facilitator, config, options);
+  const server = new x402ResourceServer(protection.facilitator).register(
     config.chain.network,
     new ExactEvmScheme(),
   );
@@ -416,7 +451,7 @@ export function createApp(
     } catch {
       return c.json({ error: "facilitator_unavailable" }, 503);
     }
-    const result = await payments(c, next);
+    const result = await protection.run(c, () => payments(c, next));
     const status =
       (result instanceof Response ? result.status : undefined) ?? c.res?.status;
     if (status === 402) {

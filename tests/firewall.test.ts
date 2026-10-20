@@ -161,7 +161,11 @@ describe("Firewall Integration Tests with Hono app", () => {
       },
     });
     expect(res.status).toBe(403);
-    const body = (await res.json()) as { error: string; reason: string; ip: string };
+    const body = (await res.json()) as {
+      error: string;
+      reason: string;
+      ip: string;
+    };
     expect(body.error).toBe("forbidden_ip");
     expect(body.reason).toBe("not_in_allowlist");
     expect(body.ip).toBe("8.8.8.8");

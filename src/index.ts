@@ -14,3 +14,13 @@ export {
   type LoggerConfig,
   type LogFormat,
 } from "./logger.js";
+
+export { IdempotencyCache } from "./idempotency.js";
+export { PaymentNonceReplayGuard } from "./nonce-guard.js";
+export {
+  TokenBucketRateLimiter,
+  AdaptiveRateLimiter,
+  createRateLimiterMiddleware,
+  type RateLimiterOptions,
+} from "./rate-limiter.js";
+export { evaluateIpFilter, parseIpList, matchesIpRule } from "./firewall.js";

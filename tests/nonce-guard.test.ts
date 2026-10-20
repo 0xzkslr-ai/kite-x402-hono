@@ -4,7 +4,8 @@ import { harness, signature, PAYER } from "./helpers.js";
 
 describe("PaymentNonceReplayGuard unit tests", () => {
   const payer = "0xAbCdEf1234567890AbCdEf1234567890AbCdEf12";
-  const nonce = "0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef";
+  const nonce =
+    "0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef";
 
   test("acquires lease on fresh nonce and rejects duplicate while in-flight", () => {
     const guard = new PaymentNonceReplayGuard({ inFlightTtlMs: 10_000 });

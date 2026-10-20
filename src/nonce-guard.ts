@@ -43,6 +43,9 @@ export class PaymentNonceReplayGuard {
     this.consumedTtlMs = options.consumedTtlMs ?? 15 * 60 * 1000;
     this.inFlightTtlMs = options.inFlightTtlMs ?? 60 * 1000;
     this.maxEntries = options.maxEntries ?? 10_000;
+    for (const n of [this.maxEntries, this.inFlightTtlMs, this.consumedTtlMs])
+      if (!Number.isSafeInteger(n) || n < 1)
+        throw new Error("Invalid nonce guard limit");
   }
 
   private buildKey(payer: string, nonce: string): string {
@@ -53,7 +56,11 @@ export class PaymentNonceReplayGuard {
    * Attempts to acquire an in-flight lease for the given (payer, nonce).
    * Returns true if acquired, false if already consumed or currently in-flight.
    */
-  public acquire(payer: string, nonce: string, now: number = Date.now()): boolean {
+  public acquire(
+    payer: string,
+    nonce: string,
+    now: number = Date.now(),
+  ): boolean {
     this.cleanExpired(now);
     const key = this.buildKey(payer, nonce);
     const existing = this.entries.get(key);
@@ -66,7 +73,7 @@ export class PaymentNonceReplayGuard {
     }
 
     if (this.entries.size >= this.maxEntries) {
-      this.forcePurgeOldest();
+      return false;
     }
 
     this.entries.set(key, {
@@ -81,6 +88,7 @@ export class PaymentNonceReplayGuard {
    */
   public commit(payer: string, nonce: string, now: number = Date.now()): void {
     const key = this.buildKey(payer, nonce);
+    if (!this.entries.has(key) && this.entries.size >= this.maxEntries) return;
     this.entries.set(key, {
       status: "CONSUMED",
       expiresAt: now + this.consumedTtlMs,
@@ -101,7 +109,11 @@ export class PaymentNonceReplayGuard {
   /**
    * Queries status of a given (payer, nonce).
    */
-  public check(payer: string, nonce: string, now: number = Date.now()): NonceStatus {
+  public check(
+    payer: string,
+    nonce: string,
+    now: number = Date.now(),
+  ): NonceStatus {
     const key = this.buildKey(payer, nonce);
     const existing = this.entries.get(key);
     if (!existing || existing.expiresAt <= now) {

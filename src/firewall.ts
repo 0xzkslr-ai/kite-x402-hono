@@ -5,7 +5,7 @@ export interface IpFilterConfig {
 
 export interface IpFilterVerdict {
   allowed: boolean;
-  reason?: 'blocked_by_blocklist' | 'not_in_allowlist' | 'invalid_ip';
+  reason?: "blocked_by_blocklist" | "not_in_allowlist" | "invalid_ip";
 }
 
 /**
@@ -14,7 +14,7 @@ export interface IpFilterVerdict {
 export function parseIpList(raw: string | undefined | null): string[] {
   if (!raw) return [];
   return raw
-    .split(',')
+    .split(",")
     .map((entry) => entry.trim())
     .filter((entry) => entry.length > 0);
 }
@@ -23,7 +23,7 @@ export function parseIpList(raw: string | undefined | null): string[] {
  * Converts an IPv4 string (e.g. "192.168.1.1") to a 32-bit unsigned integer.
  */
 export function ipv4ToNumber(ip: string): number | null {
-  const parts = ip.split('.');
+  const parts = ip.split(".");
   if (parts.length !== 4) return null;
 
   let num = 0;
@@ -40,7 +40,7 @@ export function ipv4ToNumber(ip: string): number | null {
  * Checks whether an IPv4 address falls within a given CIDR block (e.g. "10.0.0.0/8" or "192.168.1.1").
  */
 export function matchIpv4Cidr(ip: string, rule: string): boolean {
-  const parts = rule.split('/');
+  const parts = rule.split("/");
   const subnet = parts[0];
   const prefixStr = parts[1];
 
@@ -62,7 +62,7 @@ export function matchIpv4Cidr(ip: string, rule: string): boolean {
   }
 
   if (prefix === 0) return true;
-  const mask = ((~0 << (32 - prefix)) >>> 0);
+  const mask = (~0 << (32 - prefix)) >>> 0;
   return (ipNum & mask) === (subnetNum & mask);
 }
 
@@ -74,12 +74,12 @@ export function matchesIpRule(clientIp: string, rule: string): boolean {
   const normalizedRule = rule.trim().toLowerCase();
 
   // Handle IPv6 / localhost
-  if (normalizedClient === '::1' || normalizedRule === '::1') {
+  if (normalizedClient === "::1" || normalizedRule === "::1") {
     return normalizedClient === normalizedRule;
   }
 
   // IPv4 or IPv4-mapped IPv6 (e.g. ::ffff:192.168.1.1)
-  const cleanIp = normalizedClient.startsWith('::ffff:')
+  const cleanIp = normalizedClient.startsWith("::ffff:")
     ? normalizedClient.slice(7)
     : normalizedClient;
 
@@ -89,29 +89,36 @@ export function matchesIpRule(clientIp: string, rule: string): boolean {
 /**
  * Evaluates a client IP against configured allowlists and blocklists.
  */
-export function evaluateIpFilter(clientIp: string | null | undefined, config: IpFilterConfig): IpFilterVerdict {
+export function evaluateIpFilter(
+  clientIp: string | null | undefined,
+  config: IpFilterConfig,
+): IpFilterVerdict {
   if (!clientIp) {
-    return { allowed: false, reason: 'invalid_ip' };
+    return { allowed: false, reason: "invalid_ip" };
   }
 
   const cleanIp = clientIp.trim();
   if (cleanIp.length === 0) {
-    return { allowed: false, reason: 'invalid_ip' };
+    return { allowed: false, reason: "invalid_ip" };
   }
 
   // 1. Check explicit blocklist first (highest priority)
   if (config.blocklist && config.blocklist.length > 0) {
-    const isBlocked = config.blocklist.some((rule) => matchesIpRule(cleanIp, rule));
+    const isBlocked = config.blocklist.some((rule) =>
+      matchesIpRule(cleanIp, rule),
+    );
     if (isBlocked) {
-      return { allowed: false, reason: 'blocked_by_blocklist' };
+      return { allowed: false, reason: "blocked_by_blocklist" };
     }
   }
 
   // 2. Check allowlist if configured (whitelist mode)
   if (config.allowlist && config.allowlist.length > 0) {
-    const isAllowed = config.allowlist.some((rule) => matchesIpRule(cleanIp, rule));
+    const isAllowed = config.allowlist.some((rule) =>
+      matchesIpRule(cleanIp, rule),
+    );
     if (!isAllowed) {
-      return { allowed: false, reason: 'not_in_allowlist' };
+      return { allowed: false, reason: "not_in_allowlist" };
     }
   }
 
@@ -122,19 +129,19 @@ export function evaluateIpFilter(clientIp: string | null | undefined, config: Ip
  * Resolves client IP address from proxy request headers.
  */
 export function extractClientIp(headers: Headers): string | null {
-  const forwarded = headers.get('x-forwarded-for');
+  const forwarded = headers.get("x-forwarded-for");
   if (forwarded) {
-    const first = forwarded.split(',')[0];
-    const client = first ? first.trim() : '';
+    const first = forwarded.split(",")[0];
+    const client = first ? first.trim() : "";
     if (client.length > 0) return client;
   }
 
-  const realIp = headers.get('x-real-ip');
+  const realIp = headers.get("x-real-ip");
   if (realIp && realIp.trim().length > 0) {
     return realIp.trim();
   }
 
-  const cfIp = headers.get('cf-connecting-ip');
+  const cfIp = headers.get("cf-connecting-ip");
   if (cfIp && cfIp.trim().length > 0) {
     return cfIp.trim();
   }

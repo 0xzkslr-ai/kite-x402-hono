@@ -1,3 +1,4 @@
+import { parseIpList } from "./firewall.js";
 import {
   KITE_NETWORKS,
   parsePrice,
@@ -22,6 +23,11 @@ export interface Config {
   corsOrigin?: string | undefined;
   shutdownTimeoutMs?: number | undefined;
 
+  rateLimitRps?: number | undefined;
+  rateLimitBurst?: number | undefined;
+  firewallAllowlist?: string[] | undefined;
+  firewallBlocklist?: string[] | undefined;
+  trustProxyHeaders?: boolean | undefined;
   maintenanceMode?: boolean;
   logFormat?: "json" | "dev" | undefined;
   logEnabled?: boolean | undefined;
@@ -163,6 +169,15 @@ export function loadConfig(
     maintenanceMode:
       get("MAINTENANCE_MODE").toLowerCase() === "true" ||
       get("MAINTENANCE_MODE") === "1",
+    rateLimitRps: get("RATE_LIMIT_RPS")
+      ? integer(get("RATE_LIMIT_RPS"), "RATE_LIMIT_RPS", 100000)
+      : undefined,
+    rateLimitBurst: get("RATE_LIMIT_BURST")
+      ? integer(get("RATE_LIMIT_BURST"), "RATE_LIMIT_BURST", 100000)
+      : undefined,
+    firewallAllowlist: parseIpList(get("FIREWALL_ALLOWLIST")),
+    firewallBlocklist: parseIpList(get("FIREWALL_BLOCKLIST")),
+    trustProxyHeaders: get("TRUST_PROXY_HEADERS", "true") === "true",
     logFormat: get("LOG_FORMAT") === "dev" ? "dev" : "json",
     logEnabled: get("LOG_ENABLED") !== "false",
   };
