@@ -15,6 +15,7 @@ export interface Config {
   maxConcurrentRequests?: number;
   facilitatorTimeoutMs?: number;
   corsOrigin?: string | undefined;
+  shutdownTimeoutMs?: number | undefined;
 }
 
 export function parseCorsOrigin(value: string): string {
@@ -141,5 +142,10 @@ export function loadConfig(
     corsOrigin: get("CORS_ORIGIN")
       ? parseCorsOrigin(get("CORS_ORIGIN"))
       : undefined,
+    shutdownTimeoutMs: integer(
+      get("SHUTDOWN_TIMEOUT_MS", "10000"),
+      "SHUTDOWN_TIMEOUT_MS",
+      60000,
+    ),
   };
 }
