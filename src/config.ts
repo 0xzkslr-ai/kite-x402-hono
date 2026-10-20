@@ -23,6 +23,8 @@ export interface Config {
   shutdownTimeoutMs?: number | undefined;
 
   maintenanceMode?: boolean;
+  logFormat?: "json" | "dev" | undefined;
+  logEnabled?: boolean | undefined;
 }
 
 export function parseCorsOrigin(value: string): string {
@@ -161,5 +163,7 @@ export function loadConfig(
     maintenanceMode:
       get("MAINTENANCE_MODE").toLowerCase() === "true" ||
       get("MAINTENANCE_MODE") === "1",
+    logFormat: get("LOG_FORMAT") === "dev" ? "dev" : "json",
+    logEnabled: get("LOG_ENABLED") !== "false",
   };
 }

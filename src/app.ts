@@ -14,10 +14,12 @@ import { ExactEvmScheme } from "@x402/evm/exact/server";
 import { loadConfig, parseCorsOrigin, type Config } from "./config.js";
 import { parsePrice } from "./networks.js";
 import { proxy, REQUEST_ID_PATTERN, type FetchUpstream } from "./proxy.js";
+import { createAccessLogger } from "./logger.js";
 
 export interface AppOptions {
   facilitator?: FacilitatorClient;
   fetchUpstream?: FetchUpstream;
+  logSink?: ((line: string) => void) | undefined;
 }
 
 export function createApp(
@@ -34,6 +36,19 @@ export function createApp(
   let activeRequests = 0;
   const statusCounts: Record<string, number> = {};
 
+  if (config.logEnabled !== false) {
+    app.use(
+      "*",
+      createAccessLogger(
+        {
+          format: config.logFormat,
+          enabled: config.logEnabled,
+          skipHealthz: true,
+        },
+        options.logSink,
+      ),
+    );
+  }
   // Label every response — paid answers, 402 challenges, guard-rail rejections
   // and errors alike — with a request ID the caller can quote back in issues
   // and correlate across agent, wrapper and upstream logs. A caller-supplied

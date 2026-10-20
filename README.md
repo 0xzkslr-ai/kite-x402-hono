@@ -99,6 +99,8 @@ injection for tests. Never use a simulated facilitator in a production service.
 | `SHUTDOWN_TIMEOUT_MS`     | `10000`                              | Timeout in ms to drain active in-flight requests on SIGINT/SIGTERM (1 to 60000) |
 
 | `MAINTENANCE_MODE`        | `false`                              | Drain switch (`true` or `1`); `/readyz` & `/v1/*` return 503 with Retry-After   |
+| `LOG_FORMAT`              | `json`                               | Access log output format (`json` or `dev`)                                      |
+| `LOG_ENABLED`             | `true`                               | Enable structured request logging (`true` or `false`)                           |
 
 HTTPS is required for upstream/facilitator URLs except localhost development.
 The example `.env` explicitly selects testnet; the compatibility default remains
