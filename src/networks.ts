@@ -45,3 +45,20 @@ export function parsePrice(price: string, chain: KiteNetwork): AssetAmount {
     extra: { name: chain.name, version: chain.version },
   };
 }
+
+/**
+ * Resolves a Kite network descriptor from symbolic names ('mainnet', 'testnet'),
+ * numeric EVM chain IDs (2366, 2368), or CAIP-2 network identifiers ('eip155:2366', 'eip155:2368').
+ */
+export function resolveNetwork(
+  identifier: string | number,
+): KiteNetwork | undefined {
+  const norm = String(identifier).trim().toLowerCase();
+  if (norm === "mainnet" || norm === "2366" || norm === "eip155:2366") {
+    return KITE_NETWORKS.mainnet;
+  }
+  if (norm === "testnet" || norm === "2368" || norm === "eip155:2368") {
+    return KITE_NETWORKS.testnet;
+  }
+  return undefined;
+}
