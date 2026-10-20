@@ -21,6 +21,8 @@ export interface Config {
   facilitatorTimeoutMs?: number;
   corsOrigin?: string | undefined;
   shutdownTimeoutMs?: number | undefined;
+
+  maintenanceMode?: boolean;
 }
 
 export function parseCorsOrigin(value: string): string {
@@ -155,5 +157,9 @@ export function loadConfig(
       "SHUTDOWN_TIMEOUT_MS",
       60000,
     ),
+
+    maintenanceMode:
+      get("MAINTENANCE_MODE").toLowerCase() === "true" ||
+      get("MAINTENANCE_MODE") === "1",
   };
 }

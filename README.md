@@ -91,6 +91,8 @@ injection for tests. Never use a simulated facilitator in a production service.
 | `CORS_ORIGIN`             | Unset                                | Allowed origin for CORS (`*` or HTTP(S) origin); enables browser dApp clients   |
 | `SHUTDOWN_TIMEOUT_MS`     | `10000`                              | Timeout in ms to drain active in-flight requests on SIGINT/SIGTERM (1 to 60000) |
 
+| `MAINTENANCE_MODE`        | `false`                              | Drain switch (`true` or `1`); `/readyz` & `/v1/*` return 503 with Retry-After   |
+
 HTTPS is required for upstream/facilitator URLs except localhost development.
 The example `.env` explicitly selects testnet; the compatibility default remains
 mainnet. This wrapper requires no wallet private key.

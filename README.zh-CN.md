@@ -85,6 +85,8 @@ Bun.serve({ port: config.port, fetch: app.fetch });
 | `CORS_ORIGIN`             | 未配置                               | 允许的跨域来源（`*` 或 HTTP(S) origin），支持浏览器          |
 | `SHUTDOWN_TIMEOUT_MS`     | `10000`                              | 接收 SIGINT/SIGTERM 信号时排空在途请求的毫秒数（1 至 60000） |
 
+| `MAINTENANCE_MODE`        | `false`                              | 维护排空开关（`true` 或 `1`）；`/readyz` 与 `/v1/*` 返回 503 与 Retry-After |
+
 除本地开发外，上游和 facilitator 必须使用 HTTPS。示例 `.env` 明确选择 testnet，
 但兼容性默认值仍是 mainnet。本代理不需要钱包私钥。
 
