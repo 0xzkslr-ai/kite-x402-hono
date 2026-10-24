@@ -176,6 +176,30 @@ Compatibility notes:
 
 ## Verification
 
+### Idempotent paid retries
+
+Send an `Idempotency-Key` (1–128 letters, digits, `_`, `.`, `:`, `~`, or `-`)
+with `PAYMENT-SIGNATURE` to cache a successfully settled 2xx response. Retries
+must carry the same key and exact payment credential, HTTP method, URL (including
+query), body bytes and forwarded headers. `X-Request-ID` may change for each
+attempt. A matching retry returns the cached response and payment receipt with
+`Idempotent-Replayed: true` without verification, another upstream call or another
+settlement, including when an injected `PaymentNonceReplayGuard` is enabled.
+
+A key alone cannot retrieve paid data: missing or invalid payment still returns 402. Different payment credentials have independent cache entries. Reusing the
+same credential and key with different request content, or while the original
+request is still running, returns `409 {"error":"idempotency_conflict"}`. Cache
+indexes hash the credential and service configuration rather than storing raw
+signatures as keys; injected shared caches are isolated across configurations.
+
+The default in-memory cache expires completed responses after 10 minutes and is
+bounded by 1,000 entries and 32 MiB of response bodies; entries may be evicted
+earlier. Only successful settlements are cached. Process restarts, eviction,
+expiration, upstream errors and failed or indeterminate settlements do not give
+an exactly-once guarantee. Keep upstream idempotency and reconcile uncertain
+charges before retrying. This changes the earlier behavior that allowed a user
+key without the original payment credential to retrieve a cached result.
+
 ### Concurrency admission (added in 0.2.0)
 
 `MAX_CONCURRENT_REQUESTS` defaults to 64 and accepts integers from 1 to 10000.

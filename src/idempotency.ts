@@ -10,12 +10,14 @@ export interface CachedResponse {
 
 interface InFlightEntry {
   state: "in_flight";
+  fingerprint: string | undefined;
   startedAt: number;
   expiresAt: number;
 }
 
 interface CompletedEntry {
   state: "completed";
+  fingerprint: string | undefined;
   response: CachedResponse;
 }
 
@@ -59,18 +61,24 @@ export class IdempotencyCache {
     }
   }
 
+  /** A supplied fingerprint must match for both in-flight and completed requests. */
   public acquire(
     key: string,
     ttlMs = this.defaultTtlMs,
     now = Date.now(),
+    fingerprint?: string,
   ):
     | { status: "acquired" }
+    | { status: "conflict" }
     | { status: "in_flight" }
     | { status: "cached"; response: CachedResponse } {
     this.cleanExpired(now);
 
     const existing = this.records.get(key);
     if (existing) {
+      if (existing.fingerprint !== fingerprint) {
+        return { status: "conflict" };
+      }
       if (existing.state === "in_flight") {
         return { status: "in_flight" };
       }
@@ -85,6 +93,7 @@ export class IdempotencyCache {
 
     this.records.set(key, {
       state: "in_flight",
+      fingerprint,
       startedAt: now,
       expiresAt: now + Math.max(ttlMs, 600000), // 30s timeout for in-flight requests
     });
@@ -100,7 +109,8 @@ export class IdempotencyCache {
     ttlMs = this.defaultTtlMs,
     now = Date.now(),
   ): void {
-    if (!this.records.has(key)) return;
+    const record = this.records.get(key);
+    if (!record) return;
     const used = [...this.records.entries()].reduce(
       (n, [k, r]) =>
         n +
@@ -130,6 +140,7 @@ export class IdempotencyCache {
 
     this.records.set(key, {
       state: "completed",
+      fingerprint: record.fingerprint,
       response: {
         statusCode,
         headers: headerEntries,
